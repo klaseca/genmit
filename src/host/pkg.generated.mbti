@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "klaseca/genmit/host"
+
+import {
+  "klaseca/genmit/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn generate(@core.Config, @core.SelectedProvider, String, async (ProcessRequest) -> ProcessOutput) -> @core.GenerationResult
+
+pub async fn prepare_prompt(@core.Config, String, async (ProcessRequest) -> ProcessOutput) -> String
+
+pub async fn repository_root(String, async (ProcessRequest) -> ProcessOutput) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct ProcessOutput {
+  code : Int
+  stdout : String
+  stderr : String
+} derive(@debug.Debug)
+pub fn ProcessOutput::to_repr(Self) -> @debug.Repr
+
+pub(all) struct ProcessRequest {
+  command : String
+  args : Array[String]
+  cwd : String
+  input : String
+  timeout_ms : Int
+  maximum_output_bytes : Int
+} derive(@debug.Debug)
+pub fn ProcessRequest::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

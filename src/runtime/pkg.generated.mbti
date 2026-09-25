@@ -1,0 +1,21 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "klaseca/genmit/runtime"
+
+import {
+  "klaseca/genmit/core",
+}
+
+// Values
+pub async fn generate(String, config_path? : String, provider? : String) -> @core.GenerationResult
+
+pub async fn load_config(String, String?) -> @core.Config
+
+pub async fn preview_prompt(String, config_path? : String, provider? : String) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

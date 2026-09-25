@@ -1,0 +1,9 @@
+moonbit-runtime/**
+node_modules/**
+scripts/**
+src/**
+test/**
+tsconfig.json
+esbuild.config.mjs
+dist/**/*.map
+*.vsix

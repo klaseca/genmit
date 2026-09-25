@@ -1,0 +1,14 @@
+import {
+  "klaseca/genmit/core" @genmit,
+  "klaseca/genmit/host",
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"
+
+options(
+  link: {
+    "js": { "exports": [ "generate", "list_providers" ], "format": "esm" },
+  },
+)

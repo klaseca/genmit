@@ -1,0 +1,51 @@
+# Copy this file to the user config path, or pass it with --config.
+# Omitted values continue to use genmit's built-in defaults.
+provider = "codex"
+language = "en"
+style = "conventional"
+include_body = true
+max_subject_length = 72
+
+[generation]
+max_provider_calls = 32
+timeout_ms = 600000
+
+[prompt]
+extra = ""
+
+# The built-in providers are codex, openai, and anthropic. Override only the
+# fields you need; their kind, endpoint, model, and key-variable defaults remain.
+#
+# [providers.codex.config]
+# model = "gpt-5.6-luna"
+# reasoning_effort = "low"
+#
+# [providers.openai.config]
+# model = "gpt-5.6-luna"
+# reasoning_effort = "low"
+# max_tokens = 1024
+
+# A new API provider needs its own kind, endpoint, and model.
+# [providers.ollama]
+# kind = "openai-compatible"
+#
+# [providers.ollama.config]
+# endpoint = "http://localhost:11434/v1/chat/completions"
+# model = "qwen3-coder"
+# max_tokens = 1024
+
+# A custom command-line integration consists of a reusable harness and one or
+# more providers that supply concrete parameter values.
+# [harnesses.pi]
+# executable = "pi"
+# args = ["--print"]
+#
+# [harnesses.pi.parameters.model]
+# required = true
+# args = ["--model", "${value}"]
+#
+# [providers.local]
+# kind = "pi"
+#
+# [providers.local.config]
+# model = "local-model"

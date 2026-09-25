@@ -1,0 +1,49 @@
+///|
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/moon_config@0.3.14",
+  "moonbitlang/x@0.5.1/fs",
+  "moonbitlang/x@0.5.1/sys",
+}
+
+///|
+suberror VersionError {
+  VersionError(String)
+}
+
+///|
+fn main {
+  try {
+    guard @env.args() is [_, input, output] else {
+      raise VersionError("usage: extract_version.mbtx <moon.mod> <output.mbt>")
+    }
+
+    let manifest = @fs.read_file_to_string(input)
+
+    let (config, reports) = @moon_config.parse_moon_mod(name=input, manifest)
+
+    guard reports.is_empty() else { raise VersionError("invalid moon.mod") }
+
+    guard config.to_json() is { "version": String(version), .. } &&
+      !version.is_empty() else {
+      raise VersionError("moon.mod must declare a non-empty version")
+    }
+
+    @fs.write_string_to_file(
+      output,
+      "// Generated from moon.mod. Do not edit.\n///|\nconst VERSION : String = \{version.to_json().stringify()}\n",
+    )
+  } catch {
+    error => {
+      let message = match error {
+        VersionError(message) => message
+        error => "\{repr(error)}"
+      }
+
+      println("build version: \{message}")
+
+      @sys.exit(1)
+    }
+  }
+}

@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "klaseca/genmit"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+type Action derive(Eq, @debug.Debug)
+
+type CliOptions derive(@debug.Debug)
+
+// Type aliases
+
+// Traits

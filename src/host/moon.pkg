@@ -1,0 +1,15 @@
+import {
+  "klaseca/genmit/core" @genmit,
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/env",
+}
+
+supported_targets = "+js+native+wasm"
+
+import {
+  "moonbitlang/async/socket",
+  "moonbitlang/core/json",
+} for "wbtest"

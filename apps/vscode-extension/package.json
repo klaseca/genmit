@@ -1,0 +1,105 @@
+{
+  "name": "genmit",
+  "version": "0.0.0",
+  "displayName": "Genmit",
+  "description": "Generate AI-assisted commit messages from staged Git changes",
+  "publisher": "klaseca",
+  "author": "Maxim Molochkov <klaseca@gmail.com> (https://github.com/klaseca)",
+  "license": "Apache-2.0",
+  "icon": "./assets/logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klaseca/genmit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/klaseca/genmit/issues"
+  },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "codex",
+    "moonbit"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "genmit invokes Git and the selected AI provider for the current repository."
+    }
+  },
+  "type": "module",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "genmit.generate",
+        "title": "genmit: Generate Commit Message",
+        "icon": {
+          "light": "assets/genmit.svg",
+          "dark": "assets/genmit-dark.svg"
+        }
+      },
+      {
+        "command": "genmit.selectProvider",
+        "title": "genmit: Select Provider",
+        "icon": "$(server)"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "genmit.generate",
+          "group": "navigation@10",
+          "when": "scmProvider == git"
+        },
+        {
+          "command": "genmit.selectProvider",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "genmit",
+      "properties": {
+        "genmit.configPath": {
+          "type": "string",
+          "scope": "machine",
+          "order": 10,
+          "default": "",
+          "description": "TOML config file. Leave empty to use the standard user config or built-in defaults. Relative paths use the selected repository root."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "fmt": "prettier -w -u .",
+    "typecheck": "tsc --noEmit",
+    "build:moonbit": "node ./scripts/build-moonbit.mjs",
+    "build": "npm run build:moonbit && npm run typecheck && node ./esbuild.config.mjs",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run build",
+    "pretest": "npm run build:moonbit && npm run typecheck",
+    "test": "node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.0",
+    "@types/vscode": "1.101.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2"
+  }
+}

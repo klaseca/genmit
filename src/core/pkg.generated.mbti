@@ -1,0 +1,138 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "klaseca/genmit/core"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn build_diff_summary_prompt(DiffChunk, Int, Int) -> Prompt
+
+pub fn build_prompt(Config, GitContext) -> Prompt
+
+pub fn build_prompt_from_summaries(Config, GitContext, Array[String]) -> Prompt
+
+pub fn build_summary_reduction_prompt(Array[String]) -> Prompt
+
+pub fn default_config() -> Config
+
+pub fn format_provider_error_details(String) -> String
+
+pub fn normalize_message(String) -> String raise GenmitError
+
+pub fn split_diff(String, Int) -> Array[DiffChunk] raise GenmitError
+
+// Errors
+pub(all) suberror GenmitError {
+  GenmitError(String)
+} derive(@debug.Debug)
+pub fn GenmitError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) enum CommitStyle {
+  Conventional
+  Plain
+  Gitmoji
+} derive(Eq, @debug.Debug)
+pub fn CommitStyle::equal(Self, Self) -> Bool
+pub fn CommitStyle::not_equal(Self, Self) -> Bool
+pub fn CommitStyle::to_repr(Self) -> @debug.Repr
+
+pub struct Config {
+  provider : String
+  language : String
+  style : CommitStyle
+  include_body : Bool
+  max_subject_length : Int
+  extra_prompt : String
+  max_provider_calls : Int
+  generation_timeout_ms : Int
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Config::equal(Self, Self) -> Bool
+pub fn Config::from_toml(String) -> Self raise GenmitError
+pub fn Config::normalize_message(Self, String) -> String raise GenmitError
+pub fn Config::not_equal(Self, Self) -> Bool
+pub fn Config::provider_kinds(Self) -> Array[(String, String)]
+pub fn Config::select_provider(Self, provider? : String) -> SelectedProvider raise GenmitError
+pub fn Config::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DiffChunk {
+  content : String
+  context : DiffContext?
+} derive(Eq, @debug.Debug)
+pub fn DiffChunk::equal(Self, Self) -> Bool
+pub fn DiffChunk::not_equal(Self, Self) -> Bool
+pub fn DiffChunk::to_repr(Self) -> @debug.Repr
+
+pub(all) struct DiffContext {
+  file : String
+  hunk : String?
+} derive(Eq, @debug.Debug)
+pub fn DiffContext::equal(Self, Self) -> Bool
+pub fn DiffContext::not_equal(Self, Self) -> Bool
+pub fn DiffContext::to_repr(Self) -> @debug.Repr
+
+pub(all) struct GenerationResult {
+  protocol_version : Int
+  message : String
+  provider : String
+  files : Array[String]
+} derive(ToJson, @debug.Debug)
+pub fn GenerationResult::to_json(Self) -> Json
+pub fn GenerationResult::to_repr(Self) -> @debug.Repr
+
+pub(all) struct GitContext {
+  root : String
+  branch : String
+  staged_files : Array[String]
+  diff : String
+  recent_commits : String
+} derive(Eq, @debug.Debug)
+pub fn GitContext::equal(Self, Self) -> Bool
+pub fn GitContext::not_equal(Self, Self) -> Bool
+pub fn GitContext::to_repr(Self) -> @debug.Repr
+
+pub struct HttpTransport {
+  endpoint : String
+  headers : Map[String, String]
+  auth : RequestAuth
+  body : Json
+} derive(@debug.Debug)
+pub fn HttpTransport::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Prompt {
+  instructions : String
+  data : String
+} derive(Eq, @debug.Debug)
+pub fn Prompt::equal(Self, Self) -> Bool
+pub fn Prompt::not_equal(Self, Self) -> Bool
+pub fn Prompt::to_repr(Self) -> @debug.Repr
+pub fn Prompt::to_text(Self) -> String
+
+pub(all) enum ProviderRequest {
+  Process(executable~ : String, args~ : Array[String], input~ : String)
+  Http(&HttpRequest)
+}
+
+pub struct RequestAuth {
+  env : String
+  header : String
+  prefix : String
+} derive(@debug.Debug)
+pub fn RequestAuth::to_repr(Self) -> @debug.Repr
+
+pub struct SelectedProvider {
+  // private fields
+} derive(@debug.Debug)
+pub fn SelectedProvider::name(Self) -> String
+pub fn SelectedProvider::prepare_request(Self, Prompt) -> ProviderRequest
+pub fn SelectedProvider::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits
+pub trait HttpRequest {
+  fn transport(Self) -> HttpTransport
+  fn extract_response(Self, String) -> String raise GenmitError
+}

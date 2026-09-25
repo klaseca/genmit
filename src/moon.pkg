@@ -1,0 +1,25 @@
+import {
+  "klaseca/genmit/core",
+  "klaseca/genmit/runtime",
+  "moonbitlang/async",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/argparse",
+  "moonbitlang/core/env",
+  "moonbitlang/x/sys",
+}
+
+import {
+  "moonbitlang/core/json",
+} for "wbtest"
+
+supported_targets = "+native+wasm"
+
+pkgtype(kind: "executable")
+
+rule(name: "version", command: "moonx $input $output")
+
+dev_build(
+  rule: "version",
+  input: [ "extract_version.mbtx", "../moon.mod" ],
+  output: "version.generated.mbt",
+)

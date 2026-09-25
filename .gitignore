@@ -1,0 +1,11 @@
+.DS_Store
+_build/
+target
+.mooncakes/
+.moonagent/
+.repos/
+references/
+node_modules
+dist
+apps/vscode-extension/moonbit-runtime/
+apps/vscode-extension/*.vsix
