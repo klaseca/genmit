@@ -13,6 +13,7 @@ interface RuntimeSuccess {
 interface RuntimeFailure {
   ok: false
   error: string
+  cancelled?: boolean
 }
 
 type RuntimeResponse = RuntimeSuccess | RuntimeFailure
@@ -42,10 +43,26 @@ export function listProviders(source?: string): ProviderInfo[] {
 
 export type ProcessRunner = (request: ProcessRequest, signal: AbortSignal) => Promise<ProcessOutput>
 
+export type GenerationEvent = { message: string } & (
+  | { type: 'started'; provider: string; model: string | null }
+  | { type: 'collecting_changes' }
+  | { type: 'changes_collected'; files: number; diff_chars: number }
+  | ({ type: 'request_started'; number: number; input_chars: number; stage: string } & (
+      | { phase: 'summarize'; part: number; total: number }
+      | { phase: 'reduce'; round: number; part: number; total: number }
+      | { phase: 'generate_message' }
+    ))
+  | { type: 'request_completed' | 'request_failed'; number: number; duration_ms: number }
+  | { type: 'completed' | 'failed' | 'cancelled'; duration_ms: number }
+)
+
+export type ProgressListener = (event: GenerationEvent) => void
+
 type MoonBitGenerate = (
   input: string,
   runner: ProcessRunner,
   signal: AbortSignal,
+  onEvent?: ProgressListener,
 ) => Promise<RuntimeResponse>
 
 const moonBitGenerate = generateWithMoonBit as MoonBitGenerate
@@ -55,6 +72,7 @@ export async function generate(
   config: ConfigurationInput | undefined,
   signal: AbortSignal,
   runner: ProcessRunner = runProcessRequest,
+  onEvent?: ProgressListener,
 ): Promise<GenerationResult> {
   signal.throwIfAborted()
 
@@ -65,9 +83,14 @@ export async function generate(
     }),
     runner,
     signal,
+    onEvent,
   )
 
   if (!response.ok) {
+    if (response.cancelled) {
+      signal.throwIfAborted()
+    }
+
     throw new Error(response.error)
   }
 

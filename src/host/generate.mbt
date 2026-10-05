@@ -20,11 +20,15 @@ let maximum_provider_request_chars = 32000
 priv struct ProviderCallBudget {
   maximum : Int
   mut used : Int
+  on_event : (GenerationEvent) -> Unit
 }
 
 ///|
-fn ProviderCallBudget::ProviderCallBudget(maximum : Int) -> ProviderCallBudget {
-  { maximum, used: 0, }
+fn ProviderCallBudget::ProviderCallBudget(
+  maximum : Int,
+  on_event : (GenerationEvent) -> Unit,
+) -> ProviderCallBudget {
+  { maximum, used: 0, on_event, }
 }
 
 ///|
@@ -50,6 +54,33 @@ fn ProviderCallBudget::consume(
   }
 
   self.used += 1
+}
+
+///|
+async fn ProviderCallBudget::call(
+  self : ProviderCallBudget,
+  provider : @genmit.SelectedProvider,
+  prompt : @genmit.Prompt,
+  root : String,
+  runner : async (ProcessRequest) -> ProcessOutput,
+  phase : GenerationPhase,
+) -> String {
+  self.consume()
+  let number = self.used
+  let started = @async.now()
+  (self.on_event)(
+    RequestStarted(
+      number~,
+      phase~,
+      input_chars=provider_request_chars(provider, prompt),
+    ),
+  )
+  errdefer (self.on_event)(
+    RequestFailed(number~, duration_ms=elapsed_ms(started)),
+  )
+  let response = call_provider(provider, prompt, root, runner)
+  (self.on_event)(RequestCompleted(number~, duration_ms=elapsed_ms(started)))
+  response
 }
 
 ///|
@@ -184,9 +215,16 @@ async fn summarize_diff(
       chunks.length(),
     )
 
-    budget.consume()
     summaries.push(
-      validate_summary(call_provider(provider, prompt, context.root, runner)),
+      validate_summary(
+        budget.call(
+          provider,
+          prompt,
+          context.root,
+          runner,
+          Summarize(part=index + 1, total=chunks.length()),
+        ),
+      ),
     )
   }
 
@@ -206,12 +244,20 @@ async fn summarize_diff(
 
     let next = []
 
-    for group in group_summaries(provider, reduced) {
+    let groups = group_summaries(provider, reduced)
+    for index, group in groups {
       let prompt = @genmit.build_summary_reduction_prompt(group)
 
-      budget.consume()
       next.push(
-        validate_summary(call_provider(provider, prompt, context.root, runner)),
+        validate_summary(
+          budget.call(
+            provider,
+            prompt,
+            context.root,
+            runner,
+            Reduce(round=rounds + 1, part=index + 1, total=groups.length()),
+          ),
+        ),
       )
     }
 
@@ -228,10 +274,18 @@ async fn generate_within_budget(
   provider : @genmit.SelectedProvider,
   root : String,
   runner : async (ProcessRequest) -> ProcessOutput,
+  on_event : (GenerationEvent) -> Unit,
 ) -> @genmit.GenerationResult {
+  on_event(CollectingChanges)
   let context = collect_git_context(root, runner)
+  on_event(
+    ChangesCollected(
+      files=context.staged_files.length(),
+      diff_chars=context.diff.char_length(),
+    ),
+  )
 
-  let budget = ProviderCallBudget(config.max_provider_calls)
+  let budget = ProviderCallBudget(config.max_provider_calls, on_event)
 
   let direct_prompt = @genmit.build_prompt(config, context)
 
@@ -243,8 +297,13 @@ async fn generate_within_budget(
     @genmit.build_prompt_from_summaries(config, context, summaries)
   }
 
-  budget.consume()
-  let raw_message = call_provider(provider, prompt, context.root, runner)
+  let raw_message = budget.call(
+    provider,
+    prompt,
+    context.root,
+    runner,
+    GenerateMessage,
+  )
 
   let message = config.normalize_message(raw_message)
 
@@ -263,12 +322,36 @@ pub async fn generate(
   provider : @genmit.SelectedProvider,
   root : String,
   runner : async (ProcessRequest) -> ProcessOutput,
+  on_event? : (GenerationEvent) -> Unit = _ => (),
 ) -> @genmit.GenerationResult {
-  @async.with_timeout(
+  let started = @async.now()
+  let mut failed = false
+  errdefer on_event(
+    if failed {
+      Failed(duration_ms=elapsed_ms(started))
+    } else {
+      Cancelled(duration_ms=elapsed_ms(started))
+    },
+  )
+  let result = @async.with_timeout(
     config.generation_timeout_ms,
-    () => generate_within_budget(config, provider, root, runner),
+    () => {
+      on_event(Started(provider=provider.name(), model=provider.model()))
+      // A subscriber may cancel synchronously. Observe cancellation before
+      // invoking Git, with the timeout task group already established.
+      @async.pause()
+      generate_within_budget(config, provider, root, runner, on_event)
+    },
     error=@genmit.GenmitError(
       "generation timed out after \{config.generation_timeout_ms} ms",
     ),
-  )
+  ) catch {
+    error if !@async.is_cancellation_error(error) => {
+      failed = true
+      raise error
+    }
+    error => raise error
+  }
+  on_event(Completed(duration_ms=elapsed_ms(started)))
+  result
 }

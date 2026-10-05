@@ -6,20 +6,7 @@ export interface Repository {
 }
 
 export function isExpectedCancellation(error: unknown, signal: AbortSignal): boolean {
-  if (!signal.aborted) {
-    return false
-  }
-
-  if (error === signal.reason) {
-    return true
-  }
-
-  return (
-    error instanceof Error &&
-    error.name === 'AbortError' &&
-    signal.reason instanceof Error &&
-    signal.reason.name === 'AbortError'
-  )
+  return signal.aborted && error === signal.reason
 }
 
 export function repositoryForContext<T extends Repository>(

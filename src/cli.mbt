@@ -12,6 +12,7 @@ struct CliOptions {
   config_path : String?
   provider : String?
   json : Bool
+  verbose : Bool
 } derive(Debug)
 
 ///|
@@ -25,6 +26,14 @@ fn cli_command() -> @argparse.Command {
     "genmit",
     about="Generate a Git commit message from staged changes",
     version=VERSION,
+    flags=[
+      FlagArg(
+        "verbose",
+        short='v',
+        about="Log generation stages, outcomes, and timings to stderr",
+        global=true,
+      ),
+    ],
     options=[
       OptionArg(
         "cwd",
@@ -96,5 +105,6 @@ fn parse_cli(args : ArrayView[String]) -> CliOptions raise @core.GenmitError {
     config_path,
     provider,
     json: command.flags.get("json").unwrap_or(false),
+    verbose: matches.flags.get("verbose").unwrap_or(false),
   }
 }

@@ -56,6 +56,10 @@
         "command": "genmit.selectProvider",
         "title": "genmit: Select Provider",
         "icon": "$(server)"
+      },
+      {
+        "command": "genmit.showLog",
+        "title": "genmit: Show Generation Log"
       }
     ],
     "menus": {

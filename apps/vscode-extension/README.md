@@ -21,9 +21,10 @@ creates the commit for you.
 - Works with Codex CLI, the OpenAI Responses API, OpenAI-compatible Chat
   Completions APIs, Anthropic Messages, and custom command-line harnesses.
 - Handles large staged diffs without silently dropping parts of them.
+- Shows generation progress and logs for troubleshooting.
 - Keeps your commit input safe: if it changes while generation is running, the
   generated message opens in a separate editor instead of replacing it.
-- Bundles the MoonBit runtime. The standalone `genmit` CLI is not required.
+- Works without the standalone `genmit` CLI.
 
 ## Quick start with Codex
 
@@ -35,10 +36,8 @@ codex login
 codex login status
 ```
 
-The built-in Codex harness reuses this login but ignores the Codex user
-configuration, rules, and project instructions. It also disables shell access,
-hooks, apps, subagents, and web search so generation uses the prompt prepared by
-genmit. Configure the model and reasoning effort in the genmit configuration.
+genmit reuses this login. Configure the model and reasoning effort in genmit's
+TOML configuration; Codex rules and project instructions are not used.
 
 Then:
 
@@ -65,10 +64,7 @@ choose a repository instead of guessing from the active editor.
 - **genmit: Select Provider** switches between providers from the active TOML
   configuration without editing the file. It is available from the Source
   Control `…` menu and the Command Palette.
-
-The status-bar spinner is the cancellation control while generation is active.
-There is no separate setup command: providers and harnesses are configured in
-TOML.
+- **genmit: Show Generation Log** opens the generation log in Output → genmit.
 
 ## Configuration
 
@@ -100,23 +96,15 @@ model = "gpt-5.6-luna"
 reasoning_effort = "low"
 ```
 
-External TOML can define several named providers, choose one
-with the top-level `provider` field, or add custom command-line harnesses. The
-extension reads the file but never modifies it. Choose **genmit: Select Provider**
-from the Source Control `…` menu or Command Palette. The extension remembers
-your choice for the repository and config path without rewriting the
-file. If that provider is later removed, the file's default provider is used.
-Choose **Use configuration default** to clear the saved selection and follow
-the top-level `provider` field again. The file is loaded anew for each generation
-and provider selection.
+Choose **genmit: Select Provider** from the Source Control `…` menu or Command
+Palette to switch providers. The extension remembers your choice for the
+repository without changing the TOML file. Choose **Use configuration default**
+to follow the file's `provider` setting again.
 
 ### Custom providers and harnesses
 
-The shared defaults include `codex`, `openai`, and `anthropic` providers.
-Override an existing provider by its name, or define your own in TOML. Each
-provider keeps its own model and reasoning effort. A new API provider requires
-its own endpoint and model; it does not inherit them from another provider with
-the same API kind. Reasoning effort is optional and model-specific.
+Override a built-in provider by name, or define your own with its endpoint and
+model in TOML.
 
 For example, add a local OpenAI-compatible server:
 
@@ -153,55 +141,44 @@ kind = "pi"
 model = "my-model"
 ```
 
-Harness `args` come before parameter arguments, and `tail_args` after them.
-A parameter argument group is added for a non-empty value; `${value}` is
-replaced with that value. Additional prompt instructions go in `[prompt].extra`,
-and generation limits in `[generation].max_provider_calls` and `timeout_ms`.
+See the [CLI configuration guide](https://github.com/klaseca/genmit#configuration)
+for shared message settings and generation limits.
 
 For HTTP providers, set the required API key in the environment before starting
 VS Code. Restart VS Code after changing its environment. The standard variable
 is `OPENAI_API_KEY` for OpenAI Responses and `ANTHROPIC_API_KEY` for Anthropic;
 each API provider can select a different variable name.
 
-## Built-in providers and API kinds
+## Built-in providers
 
 genmit includes three ready-to-select provider names:
 
-| Provider    | Kind                 | Required setup                                            |
-| ----------- | -------------------- | --------------------------------------------------------- |
-| `codex`     | `codex`              | Install Codex, sign in, and expose `codex` through `PATH` |
-| `openai`    | `openai-responses`   | Set `OPENAI_API_KEY`                                      |
-| `anthropic` | `anthropic-messages` | Set `ANTHROPIC_API_KEY`                                   |
-
-`codex` is the name of the built-in harness as well as the default provider;
-custom harness names become valid provider kinds in the same way. The HTTP API
-kinds implemented by genmit are `openai-responses`, `openai-compatible`, and
-`anthropic-messages`. You may create any number of named providers using those
-kinds, each with its own endpoint, model, and credentials environment variable.
-
-Custom harnesses run in the selected repository root and receive the prepared
-prompt through standard input. They should remain in the foreground and clean
-up any deliberately detached child processes.
+| Provider    | Required setup                                         |
+| ----------- | ------------------------------------------------------ |
+| `codex`     | Install Codex, sign in, and put `codex` on `PATH`      |
+| `openai`    | Set `OPENAI_API_KEY`                                   |
+| `anthropic` | Set `ANTHROPIC_API_KEY`                                |
 
 ## What is sent to the provider
 
-genmit collects the staged file list, staged diff, current
-branch, and recent commit subjects. Small diffs are sent in one request. Large
-diffs are split losslessly, summarized in several provider calls, and reduced
-before the final commit-message request. By default, one generation may make at
-most 32 provider calls and run for at most 600000 milliseconds. If the initial
-lossless split exceeds the call budget, generation stops before contacting the
-provider rather than sampling or truncating the diff.
+genmit sends the staged file list and diff, current branch, and recent commit
+subjects to the selected provider. Large diffs may require several requests.
+The default limits are 32 requests and 10 minutes; exceeding them produces an
+error instead of silently omitting changes.
 
 Review `git diff --cached` before generation: staged content can contain secrets
-and is sent to the selected provider. HTTP credentials are read from environment
-variables and should not be stored in TOML. A custom harness executes with the
-permissions of its executable; genmit's staged-only rule limits the data genmit
-collects, not what an external process can read on its own.
+and is sent to the selected provider. API keys belong in environment variables,
+not TOML. Custom command-line tools run with their own permissions and may
+access files beyond the staged changes.
 
-The extension rejects Git output above 16 MiB, provider output above 4 MiB, and
-process stderr above 1 MiB. Each individual Git or provider operation has a
-180-second timeout, in addition to the whole-generation timeout.
+## Generation logging
+
+Open **Output → genmit**, or run **genmit: Show Generation Log**, to check
+progress and investigate slow or failed generation. Logs show stages and timings
+with local timestamps and highlighted severity levels. They do not record
+staged content or credentials.
+
+The status bar shows the current stage. Click its spinner to cancel generation.
 
 ## Troubleshooting
 

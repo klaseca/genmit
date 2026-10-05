@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub async fn generate(@core.Config, @core.SelectedProvider, String, async (ProcessRequest) -> ProcessOutput) -> @core.GenerationResult
+pub async fn generate(@core.Config, @core.SelectedProvider, String, async (ProcessRequest) -> ProcessOutput, on_event? : (GenerationEvent) -> Unit) -> @core.GenerationResult
 
 pub async fn prepare_prompt(@core.Config, String, async (ProcessRequest) -> ProcessOutput) -> String
 
@@ -16,6 +16,33 @@ pub async fn repository_root(String, async (ProcessRequest) -> ProcessOutput) ->
 // Errors
 
 // Types and methods
+pub(all) enum GenerationEvent {
+  Started(provider~ : String, model~ : String?)
+  CollectingChanges
+  ChangesCollected(files~ : Int, diff_chars~ : Int)
+  RequestStarted(number~ : Int, phase~ : GenerationPhase, input_chars~ : Int)
+  RequestCompleted(number~ : Int, duration_ms~ : Int)
+  RequestFailed(number~ : Int, duration_ms~ : Int)
+  Completed(duration_ms~ : Int)
+  Failed(duration_ms~ : Int)
+  Cancelled(duration_ms~ : Int)
+} derive(Eq, @debug.Debug)
+pub fn GenerationEvent::description(Self) -> String
+pub fn GenerationEvent::equal(Self, Self) -> Bool
+pub fn GenerationEvent::not_equal(Self, Self) -> Bool
+pub fn GenerationEvent::to_json(Self) -> Json
+pub fn GenerationEvent::to_repr(Self) -> @debug.Repr
+
+pub(all) enum GenerationPhase {
+  Summarize(part~ : Int, total~ : Int)
+  Reduce(round~ : Int, part~ : Int, total~ : Int)
+  GenerateMessage
+} derive(Eq, @debug.Debug)
+pub fn GenerationPhase::description(Self) -> String
+pub fn GenerationPhase::equal(Self, Self) -> Bool
+pub fn GenerationPhase::not_equal(Self, Self) -> Bool
+pub fn GenerationPhase::to_repr(Self) -> @debug.Repr
+
 pub(all) struct ProcessOutput {
   code : Int
   stdout : String

@@ -3,10 +3,11 @@ package "klaseca/genmit/runtime"
 
 import {
   "klaseca/genmit/core",
+  "klaseca/genmit/host",
 }
 
 // Values
-pub async fn generate(String, config_path? : String, provider? : String) -> @core.GenerationResult
+pub async fn generate(String, config_path? : String, provider? : String, on_event? : (@host.GenerationEvent) -> Unit) -> @core.GenerationResult
 
 pub async fn load_config(String, String?) -> @core.Config
 

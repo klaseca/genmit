@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import { externalConfigPath, loadConfigSource } from './config.ts'
 import { providerSelectionKey, selectedProvider } from './providerSelection.ts'
 import { Generations, isExpectedCancellation, repositoryForContext } from './generation.ts'
+import { GenerationProgress, type GenerationOutcome } from './progress.ts'
 import {
   listProviders,
   generate as generateWithMoonBit,
@@ -133,7 +134,7 @@ async function selectProvider(context?: unknown): Promise<void> {
 
 const generations = new Generations()
 
-async function generate(status: vscode.StatusBarItem, context?: unknown): Promise<void> {
+async function generate(progress: GenerationProgress, context?: unknown): Promise<void> {
   const repository = await chooseRepository(context)
 
   if (!repository) {
@@ -141,15 +142,24 @@ async function generate(status: vscode.StatusBarItem, context?: unknown): Promis
   }
 
   const session = generations.start(repository)
-  status.text = '$(sync~spin) Generating commit message...'
-  status.show()
+  let display: ReturnType<GenerationProgress['start']> | undefined
+  let outcome: GenerationOutcome = 'failed'
+  const failures: unknown[] = []
 
   try {
+    display = progress.start(repository.rootUri.fsPath)
     const { root, config } = await generationInput(repository)
 
-    const result = await generateWithMoonBit(root, config, session.controller.signal)
+    const result = await generateWithMoonBit(
+      root,
+      config,
+      session.controller.signal,
+      undefined,
+      display.onEvent,
+    )
 
     if (!session.isCurrent()) {
+      outcome = 'cancelled'
       return
     }
 
@@ -157,6 +167,7 @@ async function generate(status: vscode.StatusBarItem, context?: unknown): Promis
 
     if (session.canApply()) {
       repository.inputBox.value = message
+      outcome = 'applied'
     } else {
       const document = await vscode.workspace.openTextDocument({
         language: 'plaintext',
@@ -164,6 +175,7 @@ async function generate(status: vscode.StatusBarItem, context?: unknown): Promis
       })
 
       await vscode.window.showTextDocument(document, { preview: false })
+      outcome = 'opened_in_editor'
 
       void vscode.window.showInformationMessage(
         'The commit message was edited during generation. The generated message was opened in a separate editor.',
@@ -171,14 +183,20 @@ async function generate(status: vscode.StatusBarItem, context?: unknown): Promis
     }
   } catch (error) {
     if (!isExpectedCancellation(error, session.controller.signal)) {
+      failures.push(error)
       throw error
     }
+    outcome = 'cancelled'
   } finally {
     session.finish()
-
-    if (!generations.hasActive()) {
-      status.hide()
-      status.text = ''
+    try {
+      display?.finish(outcome)
+    } catch (error) {
+      failures.push(error)
+      if (failures.length > 1) {
+        throw new AggregateError(failures, failures.map(String).join('; '))
+      }
+      throw error
     }
   }
 }
@@ -201,16 +219,20 @@ export function activate(context: vscode.ExtensionContext): void {
   providerState = context.globalState
   const generationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000)
   generationStatus.command = 'genmit.cancelGeneration'
-  generationStatus.tooltip = 'Cancel all active commit-message generations'
+  const output = vscode.window.createOutputChannel('genmit', { log: true })
+  const progress = new GenerationProgress(generationStatus, output)
 
   context.subscriptions.push(
     generationStatus,
+    output,
+    progress,
     vscode.commands.registerCommand(
       'genmit.generate',
-      report((commandContext) => generate(generationStatus, commandContext)),
+      report((commandContext) => generate(progress, commandContext)),
     ),
     vscode.commands.registerCommand('genmit.selectProvider', report(selectProvider)),
     vscode.commands.registerCommand('genmit.cancelGeneration', () => generations.cancelAll()),
+    vscode.commands.registerCommand('genmit.showLog', () => output.show(true)),
   )
 }
 

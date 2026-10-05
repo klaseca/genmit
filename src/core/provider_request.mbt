@@ -74,3 +74,12 @@ pub fn SelectedProvider::prepare_request(
 pub fn SelectedProvider::name(self : SelectedProvider) -> String {
   self.name
 }
+
+///|
+/// The configured model, when the harness declares a model parameter.
+pub fn SelectedProvider::model(self : SelectedProvider) -> String? {
+  match self.data {
+    Harness(_, provider) => provider.config.get("model")
+    Api(_, config) => Some(config.model)
+  }
+}

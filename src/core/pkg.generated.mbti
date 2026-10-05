@@ -125,6 +125,7 @@ pub fn RequestAuth::to_repr(Self) -> @debug.Repr
 pub struct SelectedProvider {
   // private fields
 } derive(@debug.Debug)
+pub fn SelectedProvider::model(Self) -> String?
 pub fn SelectedProvider::name(Self) -> String
 pub fn SelectedProvider::prepare_request(Self, Prompt) -> ProviderRequest
 pub fn SelectedProvider::to_repr(Self) -> @debug.Repr

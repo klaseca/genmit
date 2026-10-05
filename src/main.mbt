@@ -71,7 +71,21 @@ async fn run_cli() -> Unit {
 
       let provider = options.provider
 
-      let result = @runtime.generate(options.cwd, config_path?, provider?)
+      let result = @runtime.generate(options.cwd, config_path?, provider?, on_event=event => {
+        if options.verbose {
+          eprintln(event.description())
+        }
+      })
+
+      if options.verbose {
+        @stdio.stderr.write(
+          if options.json {
+            "\n"
+          } else {
+            "\nCommit message:\n"
+          },
+        )
+      }
 
       @stdio.stdout.write(generation_output(result, options.json))
     }

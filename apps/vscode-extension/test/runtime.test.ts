@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import test from 'node:test'
+import { generate as generateRuntime } from '../moonbit-runtime/genmit-js-runtime.js'
 import {
   isPathInside,
   runProcess,
@@ -12,7 +13,7 @@ import {
   type ProcessOutput,
   type ProcessRequest,
 } from '../src/process.ts'
-import { generate, type ProcessRunner } from '../src/runtime.ts'
+import { generate, type ProcessRunner, type GenerationEvent } from '../src/runtime.ts'
 
 function result(code = 0, stdout = '', stderr = ''): ProcessOutput {
   return { code, stdout, stderr }
@@ -75,12 +76,42 @@ test('generation stops before invoking MoonBit when its signal is already aborte
       processCalls += 1
       throw new Error('process must not run after cancellation')
     }),
-    (error: unknown) => error === controller.signal.reason,
+    (error) => error === controller.signal.reason,
   )
   assert.equal(processCalls, 0)
 })
 
+test('cancellation from the started listener stops before Git and preserves its reason', async () => {
+  const controller = new AbortController()
+  const reason = new Error('cancel before collecting changes')
+  const events: GenerationEvent[] = []
+  let processCalls = 0
+
+  await assert.rejects(
+    generate(
+      '/repo',
+      undefined,
+      controller.signal,
+      async () => {
+        processCalls += 1
+        throw new Error('process must not run after cancellation')
+      },
+      (event) => {
+        events.push(event)
+        if (event.type === 'started') controller.abort(reason)
+      },
+    ),
+    (error) => error === reason,
+  )
+  assert.equal(processCalls, 0)
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ['started', 'cancelled'],
+  )
+})
+
 test('large diffs are summarized without dropping any diff chunk', async () => {
+  const events: GenerationEvent[] = []
   const diff =
     `diff --git a/first b/first\n${'+first change\n'.repeat(10_000)}` +
     `diff --git a/second b/second\n${'+second change\n'.repeat(10_000)}`
@@ -114,6 +145,7 @@ test('large diffs are summarized without dropping any diff chunk', async () => {
       finalStagedFiles = data.staged_files
       return result(0, 'feat: summarize every staged change')
     }, diff),
+    (event) => events.push(event),
   )
 
   assert.equal(receivedChunks.join(''), diff)
@@ -122,6 +154,204 @@ test('large diffs are summarized without dropping any diff chunk', async () => {
   assert.equal(finalSummaries?.length, reductionCalls)
   assert.deepEqual(finalStagedFiles, ['src/main.mbt'])
   assert.equal(output.message, 'feat: summarize every staged change')
+  const requests = events.filter((event) => event.type === 'request_started')
+  assert.deepEqual(
+    requests.map((event) => event.number),
+    requests.map((_, index) => index + 1),
+  )
+  const summaries = requests.filter((event) => event.phase === 'summarize')
+  assert.equal(summaries.length, receivedChunks.length)
+  assert.deepEqual(
+    summaries.map((event) => event.part),
+    summaries.map((_, index) => index + 1),
+  )
+  assert.ok(summaries.every((event) => event.total === summaries.length))
+  assert.equal(requests.filter((event) => event.phase === 'reduce').length, reductionCalls)
+  assert.equal(requests.at(-1)?.phase, 'generate_message')
+  assert.equal(events.at(-1)?.type, 'completed')
+})
+
+test('shared progress arrives while the provider is running and contains only metadata', async () => {
+  const events: GenerationEvent[] = []
+  const output = await generate(
+    '/repo',
+    undefined,
+    new AbortController().signal,
+    gitRunner(() => {
+      assert.ok(events.some((event) => event.type === 'request_started'))
+      assert.equal(
+        events.some((event) => event.type === 'completed'),
+        false,
+      )
+      return result(0, 'feat: generated', 'private diagnostic')
+    }),
+    (event) => events.push(event),
+  )
+  assert.equal(output.message, 'feat: generated')
+  assert.deepEqual(
+    events.map((event) => event.type),
+    [
+      'started',
+      'collecting_changes',
+      'changes_collected',
+      'request_started',
+      'request_completed',
+      'completed',
+    ],
+  )
+  const serialized = JSON.stringify(events)
+  for (const privateData of ['+feature', 'src/main.mbt', 'private diagnostic', 'feat: generated']) {
+    assert.equal(serialized.includes(privateData), false)
+  }
+})
+
+test('failed requests report a single failed outcome and no successful completion', async () => {
+  const events: GenerationEvent[] = []
+  await assert.rejects(
+    generate(
+      '/repo',
+      undefined,
+      new AbortController().signal,
+      gitRunner(() => result(1, '', 'private failure')),
+      (event) => events.push(event),
+    ),
+    /private failure/,
+  )
+  assert.deepEqual(
+    events.slice(-2).map((event) => event.type),
+    ['request_failed', 'failed'],
+  )
+  assert.equal(
+    events.some((event) => event.type === 'completed'),
+    false,
+  )
+  assert.equal(JSON.stringify(events).includes('private failure'), false)
+})
+
+test('direct runtime subscriber failures stop generation and preserve the original error', async () => {
+  for (const stage of ['started', 'completed', 'cancelled']) {
+    const controller = new AbortController()
+    const failure = new Error('observer failed')
+    let providerCalls = 0
+    await assert.rejects(
+      generateRuntime(
+        JSON.stringify({ root: '/repo' }),
+        gitRunner((_request, signal) => {
+          providerCalls += 1
+          if (stage === 'cancelled') {
+            controller.abort()
+            signal.throwIfAborted()
+          }
+          return result(0, 'feat: generated')
+        }),
+        controller.signal,
+        (event: GenerationEvent) => {
+          if (event.type === stage) throw failure
+        },
+      ),
+      (error) => error === failure,
+    )
+    assert.equal(providerCalls, stage === 'started' ? 0 : 1)
+  }
+})
+
+test('a subscriber failure while reporting a provider failure preserves both errors', async () => {
+  const observerFailure = new Error('observer failed')
+  await assert.rejects(
+    generate(
+      '/repo',
+      undefined,
+      new AbortController().signal,
+      gitRunner(() => result(1, '', 'provider failed')),
+      (event) => {
+        if (event.type === 'failed') throw observerFailure
+      },
+    ),
+    (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.ok(error.errors.includes(observerFailure))
+      assert.ok(error.errors.some((cause) => String(cause).includes('provider failed')))
+      return true
+    },
+  )
+})
+
+test('cancellation preserves reason identity and does not hide cleanup failures', async () => {
+  for (const reason of [
+    undefined,
+    new Error('same text'),
+    new DOMException('custom deadline', 'TimeoutError'),
+  ]) {
+    for (const cleanupFails of [false, true]) {
+      const controller = new AbortController()
+      const events: GenerationEvent[] = []
+      const failure = new Error(reason?.message ?? 'cleanup failed')
+      failure.name = reason?.name ?? 'AbortError'
+      await assert.rejects(
+        generate(
+          '/repo',
+          undefined,
+          controller.signal,
+          gitRunner(
+            (_request, signal) =>
+              new Promise<ProcessOutput>((_resolve, reject) => {
+                signal.addEventListener(
+                  'abort',
+                  () => reject(cleanupFails ? failure : signal.reason),
+                  { once: true },
+                )
+                controller.abort(reason)
+              }),
+          ),
+          (event) => events.push(event),
+        ),
+        (error) => {
+          if (cleanupFails) {
+            assert.notEqual(error, controller.signal.reason)
+            assert.ok(String(error).includes(failure.message))
+          } else {
+            assert.equal(error, controller.signal.reason)
+          }
+          return true
+        },
+      )
+      assert.deepEqual(
+        events
+          .filter((event) => ['failed', 'cancelled', 'completed'].includes(event.type))
+          .map((event) => event.type),
+        [cleanupFails ? 'failed' : 'cancelled'],
+      )
+    }
+  }
+})
+
+test('whole-generation timeout preserves process shutdown failures', async () => {
+  const events: GenerationEvent[] = []
+  await assert.rejects(
+    generate(
+      '/repo',
+      {
+        config_source: '[generation]\ntimeout_ms = 20',
+      },
+      new AbortController().signal,
+      gitRunner(
+        (_request, signal) =>
+          new Promise<ProcessOutput>((_resolve, reject) => {
+            const abort = () =>
+              setTimeout(() => reject(new Error('failed to terminate process tree')), 10)
+            if (signal.aborted) abort()
+            else signal.addEventListener('abort', abort, { once: true })
+          }),
+      ),
+      (event) => events.push(event),
+    ),
+    /timed out after 20 ms; process failed during shutdown: .*failed to terminate process tree/,
+  )
+  assert.deepEqual(
+    events.slice(-2).map((event) => event.type),
+    ['request_failed', 'failed'],
+  )
+  assert.equal(events.filter((event) => event.type === 'failed').length, 1)
 })
 
 test('serialized provider request size triggers lossless chunking', async () => {
@@ -237,6 +467,7 @@ test('summary and reduction calls cannot exceed the generation budget', async ()
 })
 
 test('whole-generation timeout includes provider execution', async () => {
+  const events: GenerationEvent[] = []
   await assert.rejects(
     generate(
       '/repo',
@@ -250,8 +481,15 @@ test('whole-generation timeout includes provider execution', async () => {
             else signal.addEventListener('abort', abort, { once: true })
           }),
       ),
+      (event) => events.push(event),
     ),
     /generation timed out after 10 ms/,
+  )
+  assert.equal(events.at(-1)?.type, 'failed')
+  assert.equal(events.filter((event) => event.type === 'failed').length, 1)
+  assert.equal(
+    events.some((event) => event.type === 'completed'),
+    false,
   )
 })
 
@@ -288,6 +526,7 @@ test('MoonBit surfaces Git metadata failures instead of inventing fallbacks', as
 })
 
 test('MoonBit performs HTTP provider requests in the JavaScript runtime', async () => {
+  const events: GenerationEvent[] = []
   let body = ''
   const server = createServer((request, response) => {
     request.setEncoding('utf8')
@@ -329,8 +568,12 @@ max_tokens = 2048`
       gitRunner(() => {
         throw new Error('HTTP providers must not invoke the process host')
       }),
+      (event) => events.push(event),
     )
     assert.equal(output.message, 'feat: over HTTP')
+    assert.equal(events.at(-1)?.type, 'completed')
+    assert.ok(events[0].type === 'started' && events[0].model === 'test-model')
+    assert.equal(events.filter((event) => event.type === 'request_started').length, 1)
     const requestBody = JSON.parse(body) as Record<string, unknown>
     assert.equal(requestBody.model, 'test-model')
     assert.equal(requestBody.store, false)
@@ -342,6 +585,57 @@ max_tokens = 2048`
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     )
+  }
+})
+
+test('HTTP cancellation preserves its reason and emits one terminal event', async () => {
+  for (const timeout of [false, true]) {
+    const controller = new AbortController()
+    const reason = new Error('cancel HTTP generation')
+    const events: GenerationEvent[] = []
+    const server = createServer((request) => {
+      request.resume()
+      if (!timeout) controller.abort(reason)
+    })
+    server.listen(0, '127.0.0.1')
+    await once(server, 'listening')
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('expected server port')
+    try {
+      const config = `provider = "test"
+[generation]
+timeout_ms = ${timeout ? 100 : 1000}
+[providers.test]
+kind = "openai-responses"
+[providers.test.config]
+endpoint = "http://127.0.0.1:${address.port}"
+model = "test-model"
+api_key_env = ""`
+      await assert.rejects(
+        generate(
+          '/repo',
+          { config_source: config },
+          controller.signal,
+          gitRunner(() => {
+            throw new Error('unexpected process')
+          }),
+          (event) => events.push(event),
+        ),
+        (error) =>
+          timeout ? /timed out after 100 ms/.test(String(error)) : error === reason,
+      )
+      assert.deepEqual(
+        events
+          .filter((event) => ['completed', 'failed', 'cancelled'].includes(event.type))
+          .map((event) => event.type),
+        [timeout ? 'failed' : 'cancelled'],
+      )
+    } finally {
+      server.closeAllConnections()
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      )
+    }
   }
 })
 

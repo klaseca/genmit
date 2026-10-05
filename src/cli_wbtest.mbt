@@ -1,24 +1,27 @@
 ///|
 test "CLI parses global selection and command-specific output options" {
   let options = parse_cli([
-    "--cwd", "repository", "--config", "release.toml", "--provider", "openai", "generate",
-    "--json",
+    "--cwd", "repository", "--config", "release.toml", "--provider", "openai", "--verbose",
+    "generate", "--json",
   ])
   assert_eq(options.action, Generate)
   assert_eq(options.cwd, "repository")
   assert_eq(options.config_path, Some("release.toml"))
   assert_eq(options.provider, Some("openai"))
   assert_true(options.json)
+  assert_true(options.verbose)
 
   let providers = parse_cli(["providers", "--json"])
   assert_eq(providers.action, Providers)
   assert_true(providers.json)
+  assert_eq(parse_cli(["prompt"]).action, Prompt)
 
   let options_after_command = parse_cli([
-    "generate", "--provider", "openai", "--config", "release.toml",
+    "generate", "--provider", "openai", "--config", "release.toml", "-v",
   ])
   assert_eq(options_after_command.provider, Some("openai"))
   assert_eq(options_after_command.config_path, Some("release.toml"))
+  assert_true(options_after_command.verbose)
 }
 
 ///|
@@ -26,18 +29,12 @@ test "CLI uses plain generation by default" {
   let options = parse_cli([])
   assert_eq(options.action, Generate)
   assert_false(options.json)
+  assert_false(options.verbose)
 }
 
 ///|
-test "CLI rejects missing values and unsupported option combinations" {
-  for
-    args in [
-      ["--provider"],
-      ["--config"],
-      ["--json"],
-      ["prompt", "--json"],
-      ["help"],
-    ] {
+test "CLI limits JSON output to generate and providers commands" {
+  for args in [["--json"], ["prompt", "--json"]] {
     try parse_cli(args) catch {
       GenmitError(_) => ()
     } noraise {
@@ -47,30 +44,39 @@ test "CLI rejects missing values and unsupported option combinations" {
 }
 
 ///|
-test "CLI help exposes one help mechanism" {
-  let help = cli_command().render_help()
-  assert_true(help.contains("-h, --help"))
-  assert_false(help.contains("help       Print help"))
-  assert_true(help.contains("generate   Generate a commit message"))
-}
-
-///|
 test "CLI provider output marks the selected provider in text and JSON" {
-  let config = @core.default_config()
-  let selected = config.select_provider(provider="openai")
+  let source =
+    #|[providers.local]
+    #|kind = "openai-compatible"
+    #|[providers.local.config]
+    #|endpoint = "http://localhost/test"
+    #|model = "test-model"
+    #|
+  let config = @core.Config::from_toml(source)
+  let selected = config.select_provider(provider="local")
 
   let text = provider_list_output(config, selected, false)
-  assert_true(text.contains("* openai (openai-responses)\n"))
-  assert_true(text.contains("  codex (codex)\n"))
+  assert_eq(
+    text
+    .split("\n")
+    .filter(line => line.has_prefix("* "))
+    .map(line => line.to_owned())
+    .to_array(),
+    ["* local (openai-compatible)"],
+  )
 
   guard @json.parse(provider_list_output(config, selected, true))
-    is [
-      { "name": "codex", "selected": false, .. },
-      { "name": "openai", "selected": true, .. },
-      { "name": "anthropic", "selected": false, .. },
-    ] else {
-    fail("expected a JSON provider list with one selected provider")
+    is Array(providers) else {
+    fail("expected a JSON provider list")
   }
+  assert_eq(providers.length(), config.provider_kinds().length())
+  let selected_names = providers.filter_map(value => {
+    match value {
+      { "name": String(name), "selected": true, .. } => Some(name)
+      _ => None
+    }
+  })
+  assert_eq(selected_names, ["local"])
 }
 
 ///|

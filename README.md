@@ -28,12 +28,8 @@ git add <files>
 genmit
 ```
 
-`genmit` prints the generated message to standard output. Review it and create
-the commit normally. The default Codex harness runs `codex exec` in its
-read-only sandbox and reuses the existing login. It ignores the Codex user
-configuration, rules, and project instructions, and disables shell access,
-hooks, apps, subagents, and web search. Configure its model and reasoning
-effort through genmit instead.
+`genmit` prints the generated message. Review it and create the commit normally.
+Configure the model and reasoning effort through genmit's TOML configuration.
 
 ## CLI
 
@@ -64,6 +60,7 @@ Options:
 - `-p, --provider <name>` selects a configured provider without changing the
   config file.
 - `--json` returns machine-readable output from `generate` or `providers`.
+- `-v, --verbose` shows generation progress and timings on standard error.
 - `-V, --version` prints the version.
 - `-h, --help` prints help. Use `genmit <command> --help` for command-specific
   options.
@@ -78,6 +75,16 @@ genmit generate --provider openai
 
 Only staged changes are used. Unstaged and untracked content is not collected
 by genmit.
+
+Use `--verbose` to follow progress or investigate slow or failed generation:
+
+```shell
+genmit --verbose
+genmit generate --json --verbose
+```
+
+Logs go to stderr, leaving stdout ready for redirection or JSON parsing. They
+include stages and timings without recording staged content or credentials.
 
 `genmit generate --json` returns a stable result for scripts and editor
 integrations:
@@ -171,32 +178,21 @@ API kinds are `openai-responses`, `openai-compatible`, and
 `harnesses`, then referenced by name from a provider. See
 [`genmit.example.toml`](https://github.com/klaseca/genmit/blob/main/genmit.example.toml) for both forms.
 
-For a harness, `args` are followed by the arguments produced by configured
-parameters and then by `tail_args`. A parameter is included when its provider
-value is non-empty, and `${value}` is replaced with that value. The prepared
-prompt is passed through standard input. Harnesses run in the repository root,
-must remain in the foreground, and should clean up their own child processes
-when cancelled.
-
 API keys are read from the environment variable named by `api_key_env`; the key
 itself should not be written to TOML. `reasoning_effort` is optional and its
 valid values depend on the selected model.
 
 ## Large staged changes
 
-Small staged diffs use one provider request. Larger diffs are split without
-dropping content, summarized, and reduced before the final commit message is
-generated. The default limits are 32 provider calls and 600000 milliseconds for
-one generation. If the work cannot fit within those limits, genmit fails instead
-of silently omitting part of the diff.
+Large staged diffs may require several provider requests. By default, generation
+is limited to 32 requests and 10 minutes. If it exceeds those limits, genmit
+reports an error instead of silently omitting part of the diff.
 
 ## VS Code extension
 
-The extension in [`apps/vscode-extension`](https://github.com/klaseca/genmit/tree/main/apps/vscode-extension) bundles the JavaScript build of
-the MoonBit runtime, so the standalone CLI is not required. It adds a Source
-Control action that generates a message for the selected repository and writes
-it to the commit input. Provider selection is available from the Source Control
-overflow menu and the Command Palette.
+The [VS Code extension](https://github.com/klaseca/genmit/tree/main/apps/vscode-extension)
+adds generation and provider selection to Source Control. The standalone CLI
+is not required.
 
 See the [extension README](https://github.com/klaseca/genmit/blob/main/apps/vscode-extension/README.md) for installation, usage,
 configuration, cancellation, and troubleshooting.
@@ -204,14 +200,12 @@ configuration, cancellation, and troubleshooting.
 ## Security
 
 Review `git diff --cached` before generation. A staged diff can contain secrets
-and is sent to the selected network provider. A custom harness runs in the
-repository root with the permissions of its executable. The staged-only rule
-limits what genmit collects; it is not a filesystem sandbox for an external
-program. The built-in Codex harness requests Codex's read-only sandbox.
-It also ignores Codex user configuration, rules, and project instructions and
-disables shell access, hooks, apps, subagents, and web search. This keeps the
-built-in harness focused on the prompt prepared by genmit. A custom harness can
-opt into normal Codex behavior when repository-aware generation is desired.
+and is sent to the selected provider. API keys belong in environment variables,
+not TOML.
+
+The built-in Codex integration uses a read-only sandbox and ignores Codex user
+configuration, rules, and project instructions. Custom command-line tools run
+with their own permissions and may access files beyond the staged changes.
 
 ## Development
 
@@ -239,6 +233,5 @@ npm test
 npm run package
 ```
 
-The extension build compiles `src/js_runtime` to JavaScript and bundles it with
-esbuild. For package boundaries and runtime details, see
+For an overview of the project structure, see
 [`docs/architecture.md`](https://github.com/klaseca/genmit/blob/main/docs/architecture.md).

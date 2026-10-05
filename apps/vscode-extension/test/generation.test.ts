@@ -68,6 +68,13 @@ test('cancellation hides only the cancellation reason, not cleanup failures', ()
 
   assert.equal(isExpectedCancellation(controller.signal.reason, controller.signal), true)
   assert.equal(
+    isExpectedCancellation(
+      new DOMException(controller.signal.reason.message, 'AbortError'),
+      controller.signal,
+    ),
+    false,
+  )
+  assert.equal(
     isExpectedCancellation(new Error('failed to terminate process tree'), controller.signal),
     false,
   )
