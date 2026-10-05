@@ -17,11 +17,11 @@ extra = ""
 # fields you need; their kind, endpoint, model, and key-variable defaults remain.
 #
 # [providers.codex.config]
-# model = "gpt-5.6-luna"
+# model = "gpt-6-luna"
 # reasoning_effort = "low"
 #
 # [providers.openai.config]
-# model = "gpt-5.6-luna"
+# model = "gpt-6-luna"
 # reasoning_effort = "low"
 # max_tokens = 1024
 

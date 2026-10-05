@@ -26,11 +26,11 @@ fn default_providers() -> Map[String, ProviderConfig] {
   {
     "codex": Harness({
       harness: "codex",
-      config: { "model": "gpt-5.6-luna", "reasoning_effort": "low" },
+      config: { "model": "gpt-6-luna", "reasoning_effort": "low" },
     }),
     "openai": Api(OpenAIResponses, {
       endpoint: "https://api.openai.com/v1/responses",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
       reasoning_effort: "low",
       api_key_env: "OPENAI_API_KEY",
       max_tokens: 1024,

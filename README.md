@@ -150,13 +150,14 @@ The built-in providers are:
 | `openai`    | `openai-responses`   | OpenAI Responses API              |
 | `anthropic` | `anthropic-messages` | Anthropic Messages API            |
 
-The built-in `codex` and `openai` providers use `gpt-5.6-luna`; `anthropic`
-uses `claude-sonnet-5`. Their default reasoning effort is `low`. A user config
-may override individual settings without repeating the whole built-in provider:
+The built-in `codex` and `openai` providers use `gpt-6-luna`; `anthropic`
+uses `claude-sonnet-5`. Their default reasoning effort is `low`.
+A user config may override individual settings without repeating the whole
+built-in provider:
 
 ```toml
 [providers.codex.config]
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 reasoning_effort = "low"
 ```
 

@@ -48,7 +48,7 @@ Then:
 4. Review and edit the generated message, then commit normally.
 
 If no external configuration file exists, genmit uses its bundled Codex
-defaults: model `gpt-5.6-luna` with `low` reasoning effort.
+defaults: model `gpt-6-luna` with `low` reasoning effort.
 
 While generation is running, a spinner is shown in the VS Code status bar.
 Click it to cancel all active generations.
@@ -92,7 +92,7 @@ include_body = true
 max_subject_length = 72
 
 [providers.codex.config]
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 reasoning_effort = "low"
 ```
 
