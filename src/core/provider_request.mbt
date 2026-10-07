@@ -36,35 +36,14 @@ pub(all) enum ProviderRequest {
 }
 
 ///|
-fn prepare_harness_request(
-  harness : HarnessConfig,
-  provider : HarnessProviderConfig,
-  input : String,
-) -> ProviderRequest {
-  let args = harness.args.copy()
-
-  for key, parameter in harness.parameters {
-    if provider.config.get(key) is Some(value) && value != "" {
-      for argument in parameter.args {
-        args.push(argument.replace_all(old="${value}", new=value))
-      }
-    }
-  }
-
-  args.append(harness.tail_args)
-
-  Process(executable=harness.executable, args~, input~)
-}
-
-///|
 /// Prepare a provider call without accessing credentials, processes, or network.
 pub fn SelectedProvider::prepare_request(
   self : SelectedProvider,
   prompt : Prompt,
 ) -> ProviderRequest {
   match self.data {
-    Harness(harness, provider) =>
-      prepare_harness_request(harness, provider, prompt.to_text())
+    Harness(executable~, args~, model=_) =>
+      Process(executable~, args=args.copy(), input=prompt.to_text())
     Api(provider, config) => Http(provider.prepare_request(config, prompt))
   }
 }
@@ -76,10 +55,17 @@ pub fn SelectedProvider::name(self : SelectedProvider) -> String {
 }
 
 ///|
-/// The configured model, when the harness declares a model parameter.
+/// Maximum prepared input size allowed for this provider, in characters.
+pub fn SelectedProvider::max_input_chars(self : SelectedProvider) -> Int {
+  self.settings.max_input_chars
+}
+
+///|
+/// The explicitly configured model, when known. Harnesses use the optional
+/// logical parameter named "model"; no model is inferred from other arguments.
 pub fn SelectedProvider::model(self : SelectedProvider) -> String? {
   match self.data {
-    Harness(_, provider) => provider.config.get("model")
+    Harness(executable=_, args=_, model~) => model
     Api(_, config) => Some(config.model)
   }
 }

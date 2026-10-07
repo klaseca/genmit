@@ -1,5 +1,5 @@
 ///|
-fn default_harnesses() -> Map[String, HarnessConfig] {
+fn default_harnesses() -> Map[String, HarnessDefinition] {
   {
     "codex": {
       executable: "codex",
@@ -22,26 +22,47 @@ fn default_harnesses() -> Map[String, HarnessConfig] {
 }
 
 ///|
+let default_max_input_chars = 32000
+
+///|
+let openai_default_max_input_chars : Int = (1050000 - 128000 - 32000) / 4
+
+///|
+let anthropic_default_max_input_chars : Int = (1000000 - 128000 - 32000) / 4
+
+///|
+let openai_model = "gpt-6-luna"
+
+///|
 fn default_providers() -> Map[String, ProviderConfig] {
   {
-    "codex": Harness({
-      harness: "codex",
-      config: { "model": "gpt-6-luna", "reasoning_effort": "low" },
-    }),
-    "openai": Api(OpenAIResponses, {
-      endpoint: "https://api.openai.com/v1/responses",
-      model: "gpt-6-luna",
-      reasoning_effort: "low",
-      api_key_env: "OPENAI_API_KEY",
-      max_tokens: 1024,
-    }),
-    "anthropic": Api(AnthropicMessages, {
-      endpoint: "https://api.anthropic.com/v1/messages",
-      model: "claude-sonnet-5",
-      reasoning_effort: "low",
-      api_key_env: "ANTHROPIC_API_KEY",
-      max_tokens: 1024,
-    }),
+    "codex": {
+      settings: { max_input_chars: openai_default_max_input_chars, },
+      backend: Harness({
+        harness: "codex",
+        parameters: { "model": openai_model, "reasoning_effort": "low" },
+      }),
+    },
+    "openai": {
+      settings: { max_input_chars: openai_default_max_input_chars, },
+      backend: Api(OpenAIResponses, {
+        endpoint: "https://api.openai.com/v1/responses",
+        model: openai_model,
+        reasoning_effort: "low",
+        api_key_env: "OPENAI_API_KEY",
+        max_tokens: 1024,
+      }),
+    },
+    "anthropic": {
+      settings: { max_input_chars: anthropic_default_max_input_chars, },
+      backend: Api(AnthropicMessages, {
+        endpoint: "https://api.anthropic.com/v1/messages",
+        model: "claude-sonnet-5",
+        reasoning_effort: "low",
+        api_key_env: "ANTHROPIC_API_KEY",
+        max_tokens: 1024,
+      }),
+    },
   }
 }
 
@@ -69,7 +90,7 @@ pub fn default_config() -> Config {
 
 ///|
 fn ProviderConfig::kind_name(self : ProviderConfig) -> String {
-  match self {
+  match self.backend {
     Harness(config) => config.harness
     Api(kind, _) => kind.name()
   }
@@ -121,6 +142,43 @@ fn configure_api_provider(
 }
 
 ///|
+fn configure_harness_provider(
+  name : String,
+  harness : HarnessDefinition,
+  provider : HarnessProviderConfig,
+) -> SelectedProviderData raise GenmitError {
+  for key, _ in provider.parameters {
+    if !harness.parameters.contains(key) {
+      raise GenmitError(
+        "providers.\{name}.config.\{key} is not a parameter of harness '\{provider.harness}'",
+      )
+    }
+  }
+
+  let args = harness.args.copy()
+  for key, parameter in harness.parameters {
+    let value = provider.parameters.get(key)
+    if parameter.required {
+      guard value is Some(value) && value.trim() != "" else {
+        raise GenmitError("providers.\{name}.config.\{key} must not be empty")
+      }
+    }
+    if value is Some(value) && value != "" {
+      for argument in parameter.args {
+        args.push(argument.replace_all(old="${value}", new=value))
+      }
+    }
+  }
+  args.append(harness.tail_args)
+
+  let model = match provider.parameters.get("model") {
+    Some(value) if value.trim() != "" => Some(value)
+    _ => None
+  }
+  Harness(executable=harness.executable, args~, model~)
+}
+
+///|
 /// Create a complete configuration and establish all of its invariants.
 fn Config::Config(
   provider~ : String,
@@ -131,7 +189,7 @@ fn Config::Config(
   extra_prompt~ : String,
   max_provider_calls~ : Int,
   generation_timeout_ms~ : Int,
-  harnesses~ : Map[String, HarnessConfig],
+  harnesses~ : Map[String, HarnessDefinition],
   providers~ : Map[String, ProviderConfig],
 ) -> Config raise GenmitError {
   if max_subject_length < 20 || max_subject_length > 200 {
@@ -173,7 +231,10 @@ fn Config::Config(
   let configured_providers = Map([])
 
   for name, provider_config in providers {
-    let data : SelectedProviderData = match provider_config {
+    if provider_config.settings.max_input_chars <= 0 {
+      raise GenmitError("providers.\{name}.max_input_chars must be positive")
+    }
+    let data : SelectedProviderData = match provider_config.backend {
       Harness(value) => {
         guard harnesses.get(value.harness) is Some(harness) else {
           raise GenmitError(
@@ -181,27 +242,7 @@ fn Config::Config(
           )
         }
 
-        for key, _ in value.config {
-          if !harness.parameters.contains(key) {
-            raise GenmitError(
-              "providers.\{name}.config.\{key} is not a parameter of harness '\{value.harness}'",
-            )
-          }
-        }
-
-        for key, parameter in harness.parameters {
-          if parameter.required {
-            match value.config.get(key) {
-              Some(parameter_value) if parameter_value.trim() != "" => ()
-              _ =>
-                raise GenmitError(
-                  "providers.\{name}.config.\{key} must not be empty",
-                )
-            }
-          }
-        }
-
-        Harness(harness, value)
+        configure_harness_provider(name, harness, value)
       }
       Api(kind, config) => configure_api_provider(name, kind, config)
     }
@@ -235,7 +276,7 @@ pub fn Config::select_provider(
     raise GenmitError("provider '\{name}' is not configured")
   }
 
-  { name, data: provider.data, }
+  { name, settings: provider.config.settings, data: provider.data, }
 }
 
 ///|

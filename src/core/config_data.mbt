@@ -16,7 +16,7 @@ priv struct HarnessParameterData {
 } derive(FromJson)
 
 ///|
-priv struct HarnessData {
+priv struct HarnessDefinitionData {
   executable : String?
   args : Array[String]?
   parameters : Map[String, HarnessParameterData]?
@@ -26,7 +26,8 @@ priv struct HarnessData {
 ///|
 priv struct ProviderData {
   kind : String?
-  config : Map[String, Json]?
+  max_input_chars : Int?
+  config : Json?
 } derive(FromJson)
 
 ///|
@@ -47,7 +48,7 @@ priv struct ConfigData {
   max_subject_length : Int?
   prompt : PromptData?
   generation : GenerationData?
-  harnesses : Map[String, HarnessData]?
+  harnesses : Map[String, HarnessDefinitionData]?
   providers : Map[String, ProviderData]?
 } derive(FromJson)
 
@@ -95,7 +96,10 @@ fn[T : @json.FromJson] decode_json(
 }
 
 ///|
-fn merge_harness(data : HarnessData, default : HarnessConfig?) -> HarnessConfig {
+fn merge_harness(
+  data : HarnessDefinitionData,
+  default : HarnessDefinition?,
+) -> HarnessDefinition {
   let fallback = default.unwrap_or({
     executable: "",
     args: [],
@@ -148,7 +152,7 @@ fn build_provider(
   data : ProviderData,
   name : String,
   default : ProviderConfig?,
-  harnesses : Map[String, HarnessConfig],
+  harnesses : Map[String, HarnessDefinition],
 ) -> ProviderConfig raise GenmitError {
   let kind = match data.kind {
     Some(value) => value
@@ -164,33 +168,35 @@ fn build_provider(
 
   let path = "providers.\{name}"
 
-  let raw_config = data.config.unwrap_or(Map([]))
+  let settings : ProviderSettings = {
+    max_input_chars: data.max_input_chars.unwrap_or(
+      default
+      .map(value => value.settings.max_input_chars)
+      .unwrap_or(default_max_input_chars),
+    ),
+  }
+  let raw_config = data.config.unwrap_or(Json::object(Map([])))
+  let defaults = default.map(value => value.backend)
 
-  if harnesses.contains(kind) {
-    let config = match default {
-      Some(Harness(value)) if value.harness == kind => value.config.copy()
+  let backend : ProviderBackendConfig = if harnesses.contains(kind) {
+    let parameters = match defaults {
+      Some(Harness(value)) if value.harness == kind => value.parameters.copy()
       _ => Map([])
     }
-
-    let overrides : Map[String, String] = decode_json(
-      Json::object(raw_config),
+    let configured_parameters : Map[String, String] = decode_json(
+      raw_config,
       "\{path}.config",
     )
-
-    for key, value in overrides {
-      config[key] = value
+    for key, value in configured_parameters {
+      parameters[key] = value
     }
-
-    Harness({ harness: kind, config, })
+    Harness({ harness: kind, parameters, })
   } else {
     let api_kind = parse_api_kind(kind)
 
-    let data : ApiConfigData = decode_json(
-      Json::object(raw_config),
-      "\{path}.config",
-    )
+    let data : ApiConfigData = decode_json(raw_config, "\{path}.config")
 
-    let defaults = match default {
+    let defaults = match defaults {
       Some(Api(default_kind, config)) if default_kind == api_kind =>
         Some(config)
       _ => None
@@ -198,6 +204,7 @@ fn build_provider(
 
     Api(api_kind, build_api_config(data, defaults))
   }
+  { settings, backend, }
 }
 
 ///|

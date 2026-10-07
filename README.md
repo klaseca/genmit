@@ -139,6 +139,8 @@ The main generation settings are:
 - `include_body`: whether a body is allowed after the subject;
 - `max_subject_length`: subject limit from 20 to 200 characters;
 - `prompt.extra`: additional instructions;
+- `providers.<name>.max_input_chars`: maximum prepared input size per
+  request in characters, including instructions and context;
 - `generation.max_provider_calls` and `generation.timeout_ms`: whole-generation
   safety limits.
 
@@ -152,10 +154,16 @@ The built-in providers are:
 
 The built-in `codex` and `openai` providers use `gpt-6-luna`; `anthropic`
 uses `claude-sonnet-5`. Their default reasoning effort is `low`.
+Their input budgets are 222,500 and 210,000 characters respectively. New
+providers use 32,000 characters unless `max_input_chars` is set explicitly.
+Changing a provider's model or kind preserves its input budget.
 A user config may override individual settings without repeating the whole
 built-in provider:
 
 ```toml
+[providers.codex]
+max_input_chars = 64000
+
 [providers.codex.config]
 model = "gpt-6-luna"
 reasoning_effort = "low"
@@ -182,6 +190,10 @@ API kinds are `openai-responses`, `openai-compatible`, and
 API keys are read from the environment variable named by `api_key_env`; the key
 itself should not be written to TOML. `reasoning_effort` is optional and its
 valid values depend on the selected model.
+
+Each provider's `max_input_chars` sets genmit's input budget. The nested
+`config` table contains backend options: typed API fields or string values for
+parameters declared by a harness.
 
 ## Large staged changes
 

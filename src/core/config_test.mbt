@@ -21,6 +21,23 @@ test "empty TOML resolves to the built-in defaults" {
 }
 
 ///|
+test "provider input budgets inherit defaults independently of backend options" {
+  let defaults = @core.default_config()
+  for name in ["codex", "openai", "anthropic"] {
+    for
+      config in [
+        "[providers.\{name}.config]\nmodel = \"other-model\"",
+        "[providers.\{name}]\nkind = \"openai-compatible\"\n[providers.\{name}.config]\nendpoint = \"http://localhost/test\"\nmodel = \"other-model\"",
+      ] {
+      assert_eq(
+        test_config(config).select_provider(provider=name).max_input_chars(),
+        defaults.select_provider(provider=name).max_input_chars(),
+      )
+    }
+  }
+}
+
+///|
 test "TOML partially overrides a built-in API provider" {
   guard test_config("")
     .select_provider(provider="openai")
@@ -34,7 +51,7 @@ test "TOML partially overrides a built-in API provider" {
   }
 
   let provider = test_selected_provider(
-    "provider = \"openai\"\n[providers.openai.config]\nmax_tokens = 2048",
+    "provider = \"openai\"\n[providers.openai]\nmax_input_chars = 64000\n[providers.openai.config]\nmax_tokens = 2048",
   )
 
   guard provider.prepare_request(test_prompt("prompt")) is Http(request) else {
@@ -43,6 +60,8 @@ test "TOML partially overrides a built-in API provider" {
   let request = request.transport()
   assert_eq(request.endpoint, default_request.endpoint)
   assert_eq(request.auth.env, default_request.auth.env)
+  assert_eq(provider.max_input_chars(), 64000)
+  assert_eq(provider.model(), Some(default_model))
   assert_true(
     request.body is { "model": String(model), "max_output_tokens": 2048, .. } &&
     model == default_model,
@@ -65,15 +84,21 @@ test "TOML adds reusable harnesses and concrete providers" {
     #|executable = "pi"
     #|args = ["--print"]
     #|
-    #|[harnesses.pi.parameters.model]
+    #|[harnesses.pi.parameters.engine]
     #|required = true
     #|args = ["--model", "${value}"]
     #|
+    #|[harnesses.pi.parameters.profile]
+    #|required = true
+    #|args = ["--profile=${value}"]
+    #|
     #|[providers.local]
     #|kind = "pi"
+    #|max_input_chars = 64000
     #|
     #|[providers.local.config]
-    #|model = "local-model"
+    #|engine = "local-model"
+    #|profile = "commit"
     #|
 
   let config = test_config(input)
@@ -84,6 +109,8 @@ test "TOML adds reusable harnesses and concrete providers" {
   assert_eq(config.style, Plain)
   assert_false(config.include_body)
   assert_eq(config.max_subject_length, 60)
+  assert_eq(provider.max_input_chars(), 64000)
+  assert_eq(provider.model(), None)
 
   let prompt = test_prompt("prompt")
 
@@ -94,7 +121,77 @@ test "TOML adds reusable harnesses and concrete providers" {
   assert_eq(input, prompt.to_text())
 
   assert_eq(executable, "pi")
-  assert_eq(args, ["--print", "--model", "local-model"])
+  assert_true(args.contains("--profile=commit"))
+  assert_eq(args.filter(argument => !argument.has_prefix("--profile=")), [
+    "--print", "--model", "local-model",
+  ])
+
+  args.push("--changed-by-caller")
+  let next_prompt = test_prompt("another prompt")
+  guard provider.prepare_request(next_prompt)
+    is Process(executable=_, args=next_args, input=next_input) else {
+    fail("local provider did not produce another process request")
+  }
+  assert_false(next_args.contains("--changed-by-caller"))
+  assert_eq(next_input, next_prompt.to_text())
+}
+
+///|
+test "harness model metadata follows an optional command parameter" {
+  let definition =
+    #|[harnesses.local]
+    #|executable = "local"
+    #|[harnesses.local.parameters.model]
+    #|args = ["--model", "${value}"]
+    #|[providers.local]
+    #|kind = "local"
+    #|[providers.local.config]
+    #|
+
+  for
+    (setting, model, expected_args) in [
+      ("", None, []),
+      ("model = \"\"", None, []),
+      (
+        "model = \"local-model\"",
+        Some("local-model"),
+        ["--model", "local-model"],
+      ),
+    ] {
+    let provider = test_config(definition + setting).select_provider(
+      provider="local",
+    )
+    assert_eq(provider.model(), model)
+    guard provider.prepare_request(test_prompt("prompt"))
+      is Process(executable=_, args~, input=_) else {
+      fail("expected a process request")
+    }
+    assert_eq(args, expected_args)
+  }
+}
+
+///|
+test "harness parameters are independent of genmit settings" {
+  let input =
+    #|[harnesses.local]
+    #|executable = "local"
+    #|[harnesses.local.parameters.max_input_chars]
+    #|required = true
+    #|args = ["--limit", "${value}"]
+    #|[providers.local]
+    #|kind = "local"
+    #|max_input_chars = 64000
+    #|[providers.local.config]
+    #|max_input_chars = "128"
+    #|
+
+  let provider = test_config(input).select_provider(provider="local")
+  assert_eq(provider.max_input_chars(), 64000)
+  guard provider.prepare_request(test_prompt("prompt"))
+    is Process(executable="local", args~, input=_) else {
+    fail("local provider did not produce a process request")
+  }
+  assert_eq(args, ["--limit", "128"])
 }
 
 ///|
@@ -125,6 +222,7 @@ test "providers sharing an API kind keep independent settings" {
     let input =
       $|[providers.first]
       $|kind = "\{kind}"
+      $|max_input_chars = 64000
       $|[providers.first.config]
       $|endpoint = "http://localhost/first"
       $|model = "first-model"
@@ -134,11 +232,20 @@ test "providers sharing an API kind keep independent settings" {
       $|
       $|[providers.second]
       $|kind = "\{kind}"
+      $|max_input_chars = 12000
       $|[providers.second.config]
       $|endpoint = "http://localhost/second"
       $|model = "second-model"
+      $|api_key_env = ""
+      $|reasoning_effort = ""
+      $|max_tokens = 4096
 
     let config = test_config(input)
+    assert_eq(config.select_provider(provider="first").max_input_chars(), 64000)
+    assert_eq(
+      config.select_provider(provider="second").max_input_chars(),
+      12000,
+    )
     let prompt = test_prompt("prompt")
     guard config.select_provider(provider="first").prepare_request(prompt)
       is Http(first) else {
@@ -169,11 +276,11 @@ test "providers sharing an API kind keep independent settings" {
     match kind {
       "openai-responses" => {
         assert_true(first.body is { "max_output_tokens": 2048, .. })
-        assert_true(second.body is { "max_output_tokens": 1024, .. })
+        assert_true(second.body is { "max_output_tokens": 4096, .. })
       }
       _ => {
         assert_true(first.body is { "max_tokens": 2048, .. })
-        assert_true(second.body is { "max_tokens": 1024, .. })
+        assert_true(second.body is { "max_tokens": 4096, .. })
       }
     }
   }
@@ -253,13 +360,34 @@ test "config validates the common API token limit" {
 }
 
 ///|
-test "config validates whole-generation limits" {
+test "config validates generation limits" {
   for field in ["max_provider_calls", "timeout_ms"] {
     try test_config("[generation]\n\{field} = 0") catch {
       GenmitError(message) =>
         assert_eq(message, "generation.\{field} must be positive")
     } noraise {
       _ => fail("expected config validation to fail")
+    }
+  }
+}
+
+///|
+test "config rejects invalid input budgets for any configured provider" {
+  for name in ["codex", "openai", "anthropic"] {
+    for maximum in ["0", "-1", "1.5", "\"32000\"", "4294967296"] {
+      try
+        test_config("[providers.\{name}]\nmax_input_chars = \{maximum}")
+      catch {
+        GenmitError(message) =>
+          assert_true(
+            message.contains("providers") &&
+            message.contains(name) &&
+            message.contains("max_input_chars"),
+            msg=message,
+          )
+      } noraise {
+        _ => fail("expected input budget validation to fail")
+      }
     }
   }
 }

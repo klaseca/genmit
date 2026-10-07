@@ -11,12 +11,6 @@ pub async fn prepare_prompt(
 }
 
 ///|
-let initial_diff_chunk_chars = 12000
-
-///|
-let maximum_provider_request_chars = 32000
-
-///|
 priv struct ProviderCallBudget {
   maximum : Int
   mut used : Int
@@ -115,7 +109,8 @@ fn validate_summary(raw : String) -> String raise @genmit.GenmitError {
 fn group_summaries(
   provider : @genmit.SelectedProvider,
   summaries : Array[String],
-) -> Array[Array[String]] {
+  maximum : Int,
+) -> Array[Array[String]] raise @genmit.GenmitError {
   let groups : Array[Array[String]] = []
   let mut current : Array[String] = []
 
@@ -127,11 +122,21 @@ fn group_summaries(
     let prompt = @genmit.build_summary_reduction_prompt(candidate)
 
     if current.length() > 0 &&
-      provider_request_chars(provider, prompt) > maximum_provider_request_chars {
+      provider_request_chars(provider, prompt) > maximum {
       groups.push(current)
       current = []
     }
 
+    if current.is_empty() &&
+      provider_request_chars(
+        provider,
+        @genmit.build_summary_reduction_prompt([summary]),
+      ) >
+      maximum {
+      raise GenmitError(
+        "a staged-change summary exceeds providers.\{provider.name()}.max_input_chars; increase the input limit",
+      )
+    }
     current.push(summary)
   }
 
@@ -146,43 +151,17 @@ fn group_summaries(
 fn diff_chunks_for_provider(
   provider : @genmit.SelectedProvider,
   diff : String,
+  config : @genmit.Config,
 ) -> Array[@genmit.DiffChunk] raise @genmit.GenmitError {
-  diff_chunks_for_provider_at(provider, diff, initial_diff_chunk_chars)
-}
-
-///|
-fn diff_chunks_for_provider_at(
-  provider : @genmit.SelectedProvider,
-  diff : String,
-  maximum : Int,
-) -> Array[@genmit.DiffChunk] raise @genmit.GenmitError {
-  let chunks = @genmit.split_diff(diff, maximum)
-  let mut fit = true
-
-  for index in 0..<chunks.length() {
+  @genmit.split_diff(diff, provider.max_input_chars(), fits=chunk => {
+    // Reserve the counter width for every call allowed by the budget.
     let prompt = @genmit.build_diff_summary_prompt(
-      chunks[index],
-      index + 1,
-      chunks.length(),
+      chunk,
+      config.max_provider_calls,
+      config.max_provider_calls,
     )
-
-    if provider_request_chars(provider, prompt) > maximum_provider_request_chars {
-      fit = false
-      break
-    }
-  }
-
-  if fit {
-    return chunks
-  }
-
-  if maximum == 1 {
-    raise GenmitError(
-      "provider request overhead exceeds the internal input budget",
-    )
-  }
-
-  diff_chunks_for_provider_at(provider, diff, (maximum / 2).max(1))
+    provider_request_chars(provider, prompt) <= provider.max_input_chars()
+  })
 }
 
 ///|
@@ -197,13 +176,13 @@ async fn summarize_diff(
       provider,
       @genmit.build_prompt_from_summaries(config, context, []),
     ) >
-    maximum_provider_request_chars {
+    provider.max_input_chars() {
     raise @genmit.GenmitError(
-      "final request metadata exceeds the provider request limit; stage fewer files or shorten the configured instructions",
+      "final request metadata exceeds providers.\{provider.name()}.max_input_chars; stage fewer files, shorten the configured instructions, or increase the input limit",
     )
   }
 
-  let chunks = diff_chunks_for_provider(provider, context.diff)
+  let chunks = diff_chunks_for_provider(provider, context.diff, config)
   let summaries = []
 
   budget.ensure_available(chunks.length() + 1)
@@ -235,7 +214,7 @@ async fn summarize_diff(
           provider,
           @genmit.build_prompt_from_summaries(config, context, reduced),
         ) >
-        maximum_provider_request_chars {
+        provider.max_input_chars() {
     if rounds >= 12 {
       raise @genmit.GenmitError(
         "provider could not condense the staged diff into a final request",
@@ -244,7 +223,8 @@ async fn summarize_diff(
 
     let next = []
 
-    let groups = group_summaries(provider, reduced)
+    let groups = group_summaries(provider, reduced, provider.max_input_chars())
+    budget.ensure_available(groups.length() + 1)
     for index, group in groups {
       let prompt = @genmit.build_summary_reduction_prompt(group)
 
@@ -290,7 +270,7 @@ async fn generate_within_budget(
   let direct_prompt = @genmit.build_prompt(config, context)
 
   let prompt = if provider_request_chars(provider, direct_prompt) <=
-    maximum_provider_request_chars {
+    provider.max_input_chars() {
     direct_prompt
   } else {
     let summaries = summarize_diff(provider, config, context, budget, runner)

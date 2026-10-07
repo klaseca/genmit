@@ -35,9 +35,11 @@ and operating-system integration.
 
 ## Providers and configuration
 
-A named provider selects either an HTTP API or a command-line harness. Harnesses
-are configured command templates; adding another CLI tool does not require a
-new transport implementation. HTTP protocols are implemented in MoonBit.
+A named provider keeps genmit settings separate from an HTTP API configuration
+or values for a command-line harness. Harness definitions describe commands and
+their accepted parameters; providers supply concrete values. Adding another CLI
+tool does not require a new transport implementation. HTTP protocols are
+implemented in MoonBit.
 
 The core parses and validates TOML over built-in defaults. Each frontend chooses
 which file to load. The extension stores provider selections separately and

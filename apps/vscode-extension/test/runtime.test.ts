@@ -123,7 +123,7 @@ test('large diffs are summarized without dropping any diff chunk', async () => {
 
   const output = await generate(
     '/repo',
-    undefined,
+    { config_source: '[providers.codex]\nmax_input_chars = 24000' },
     new AbortController().signal,
     gitRunner((request) => {
       const serialized = request.input as string
@@ -155,6 +155,7 @@ test('large diffs are summarized without dropping any diff chunk', async () => {
   assert.deepEqual(finalStagedFiles, ['src/main.mbt'])
   assert.equal(output.message, 'feat: summarize every staged change')
   const requests = events.filter((event) => event.type === 'request_started')
+  assert.ok(requests.every((event) => event.input_chars <= 24000))
   assert.deepEqual(
     requests.map((event) => event.number),
     requests.map((_, index) => index + 1),
@@ -360,7 +361,7 @@ test('serialized provider request size triggers lossless chunking', async () => 
 
   const output = await generate(
     '/repo',
-    undefined,
+    { config_source: '[providers.codex]\nmax_input_chars = 32000' },
     new AbortController().signal,
     gitRunner((request) => {
       const serialized = request.input as string
@@ -387,7 +388,10 @@ test('large diff fan-out is rejected before the first provider call', async () =
   await assert.rejects(
     generate(
       '/repo',
-      { config_source: '[generation]\nmax_provider_calls = 2' },
+      {
+        config_source:
+          '[generation]\nmax_provider_calls = 2\n[providers.codex]\nmax_input_chars = 32000',
+      },
       new AbortController().signal,
       gitRunner((request) => {
         providerCalls += 1
@@ -417,8 +421,13 @@ test('oversized staged-file metadata fails before any provider call', async () =
   }
 
   await assert.rejects(
-    generate('/repo', undefined, new AbortController().signal, runner),
-    /final request metadata exceeds the provider request limit/,
+    generate(
+      '/repo',
+      { config_source: '[providers.codex]\nmax_input_chars = 32000' },
+      new AbortController().signal,
+      runner,
+    ),
+    /final request metadata exceeds providers\.codex\.max_input_chars/,
   )
   assert.equal(providerCalls, 0)
 })
@@ -434,7 +443,7 @@ test('empty and oversized diff summaries are rejected before the final request',
     await assert.rejects(
       generate(
         '/repo',
-        undefined,
+        { config_source: '[providers.codex]\nmax_input_chars = 32000' },
         new AbortController().signal,
         gitRunner(() => {
           providerCalls += 1
@@ -447,23 +456,26 @@ test('empty and oversized diff summaries are rejected before the final request',
   }
 })
 
-test('summary and reduction calls cannot exceed the generation budget', async () => {
-  const diff = `diff --git a/large b/large\n${'+change\n'.repeat(9_000)}`
+test('reduction reserves a provider call for the final result', async () => {
+  const diff = `diff --git a/large b/large\n${'+change\n'.repeat(22_000)}`
   let providerCalls = 0
 
   await assert.rejects(
     generate(
       '/repo',
-      { config_source: '[generation]\nmax_provider_calls = 8' },
+      {
+        config_source:
+          '[generation]\nmax_provider_calls = 8\n[providers.codex]\nmax_input_chars = 32000',
+      },
       new AbortController().signal,
       gitRunner(() => {
         providerCalls += 1
         return result(0, 'summary '.repeat(900))
       }, diff),
     ),
-    /exceeded generation\.max_provider_calls \(8\)/,
+    /requires at least .* provider calls.*max_provider_calls is 8/,
   )
-  assert.equal(providerCalls, 8)
+  assert.ok(providerCalls > 0 && providerCalls < 8)
 })
 
 test('whole-generation timeout includes provider execution', async () => {
@@ -621,8 +633,7 @@ api_key_env = ""`
           }),
           (event) => events.push(event),
         ),
-        (error) =>
-          timeout ? /timed out after 100 ms/.test(String(error)) : error === reason,
+        (error) => (timeout ? /timed out after 100 ms/.test(String(error)) : error === reason),
       )
       assert.deepEqual(
         events

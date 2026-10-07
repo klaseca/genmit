@@ -43,8 +43,8 @@ priv struct HarnessParameter {
 } derive(Debug, Eq)
 
 ///|
-/// Reusable command-line harness template.
-priv struct HarnessConfig {
+/// Definition of a command-line integration and its accepted parameters.
+priv struct HarnessDefinition {
   executable : String
   args : Array[String]
   parameters : Map[String, HarnessParameter]
@@ -52,10 +52,16 @@ priv struct HarnessConfig {
 } derive(Debug, Eq)
 
 ///|
+/// Genmit settings shared by command-line and HTTP providers.
+priv struct ProviderSettings {
+  max_input_chars : Int
+} derive(Debug, Eq)
+
+///|
 /// Concrete values supplied to a harness by a provider.
 priv struct HarnessProviderConfig {
   harness : String
-  config : Map[String, String]
+  parameters : Map[String, String]
 } derive(Debug, Eq)
 
 ///|
@@ -79,9 +85,16 @@ priv enum ApiKind {
 ///|
 /// A configured provider resolves either to a user-defined harness or to one
 /// of the HTTP APIs implemented by genmit.
-priv enum ProviderConfig {
+priv enum ProviderBackendConfig {
   Harness(HarnessProviderConfig)
   Api(ApiKind, ApiConfig)
+} derive(Debug, Eq)
+
+///|
+/// Provider settings and the configuration of its transport.
+priv struct ProviderConfig {
+  settings : ProviderSettings
+  backend : ProviderBackendConfig
 } derive(Debug, Eq)
 
 ///|
@@ -102,7 +115,7 @@ pub struct Config {
   extra_prompt : String
   max_provider_calls : Int
   generation_timeout_ms : Int
-  priv harnesses : Map[String, HarnessConfig]
+  priv harnesses : Map[String, HarnessDefinition]
   priv providers : Map[String, ConfiguredProvider]
 } derive(Debug, Eq)
 
@@ -114,7 +127,7 @@ pub extend Config with Eq::{not_equal, equal}
 
 ///|
 priv enum SelectedProviderData {
-  Harness(HarnessConfig, HarnessProviderConfig)
+  Harness(executable~ : String, args~ : Array[String], model~ : String?)
   Api(&ApiProvider, ApiConfig)
 } derive(Debug)
 
@@ -134,6 +147,7 @@ impl Eq for ConfiguredProvider with fn equal(self, other) {
 /// A selected and validated provider.
 pub struct SelectedProvider {
   priv name : String
+  priv settings : ProviderSettings
   priv data : SelectedProviderData
 } derive(Debug)
 

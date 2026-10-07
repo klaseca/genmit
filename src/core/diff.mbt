@@ -1,61 +1,4 @@
 ///|
-fn split_by_characters(text : String, maximum : Int) -> Array[String] {
-  let chunks = []
-  let mut remaining = text.view()
-  let mut remaining_length = text.char_length()
-
-  while remaining_length > maximum {
-    let offset = remaining.offset_of_nth_char(maximum).unwrap()
-    chunks.push(remaining.view(end_offset=offset).to_owned())
-    remaining = remaining.view(start_offset=offset)
-    remaining_length -= maximum
-  }
-
-  if remaining_length > 0 {
-    chunks.push(remaining.to_owned())
-  }
-
-  chunks
-}
-
-///|
-fn split_at_lines(text : String, maximum : Int) -> Array[String] {
-  let chunks = []
-  let current = StringBuilder()
-  let mut current_length = 0
-  let lines = text.split("\n").to_array()
-
-  for index in 0..<lines.length() {
-    let suffix = if index + 1 < lines.length() { "\n" } else { "" }
-    let line = lines[index].to_owned() + suffix
-    let line_length = line.char_length()
-
-    if line_length > maximum {
-      if !current.is_empty() {
-        chunks.push(current.to_string())
-        current.reset()
-        current_length = 0
-      }
-      chunks.append(split_by_characters(line, maximum))
-    } else {
-      if current_length + line_length > maximum {
-        chunks.push(current.to_string())
-        current.reset()
-        current_length = 0
-      }
-      current.write_string(line)
-      current_length += line_length
-    }
-  }
-
-  if !current.is_empty() {
-    chunks.push(current.to_string())
-  }
-
-  chunks
-}
-
-///|
 fn diff_file_blocks(diff : String) -> Array[String] {
   let blocks = []
   let current = StringBuilder()
@@ -107,25 +50,84 @@ fn file_context(block : String) -> String {
 }
 
 ///|
-fn contextualize_file_chunks(
+fn last_hunk(content : String, previous : String?) -> String? {
+  let mut hunk = previous
+  for line in content.split("\n") {
+    if line.has_prefix("@@") {
+      hunk = Some(line.to_owned())
+    }
+  }
+  hunk
+}
+
+///|
+fn split_file(
   block : String,
-  contents : Array[String],
-) -> Array[DiffChunk] {
+  maximum : Int,
+  fits : (DiffChunk) -> Bool,
+) -> Array[DiffChunk] raise GenmitError {
   let chunks = []
-  let file_context = file_context(block)
+  let file = file_context(block)
+  let mut remaining = block.view()
+  let mut remaining_length = block.char_length()
   let mut hunk_context : String? = None
 
-  for content in contents {
-    chunks.push({
-      content,
-      context: Some({ file: file_context, hunk: hunk_context, }),
-    })
+  while remaining_length > 0 {
+    let context = Some({ file, hunk: hunk_context, })
+    let mut low = 0
+    let mut high = remaining_length.min(maximum)
 
-    for line in content.split("\n") {
-      if line.has_prefix("@@") {
-        hunk_context = Some(line.to_owned())
+    // Request size grows with the prefix. Find its largest fitting length,
+    // then prefer a line boundary unless the following line itself is too big.
+    while low < high {
+      let middle = low + (high - low + 1) / 2
+      let offset = remaining
+        .offset_of_nth_char(middle)
+        .unwrap_or(remaining.length())
+      let content = remaining.view(end_offset=offset).to_owned()
+      if fits({ content, context, }) {
+        low = middle
+      } else {
+        high = middle - 1
       }
     }
+
+    if low == 0 {
+      raise GenmitError(
+        "max_input_chars is too small for diff context and request instructions",
+      )
+    }
+
+    let mut end_offset = remaining
+      .offset_of_nth_char(low)
+      .unwrap_or(remaining.length())
+    let mut content = remaining.view(end_offset~).to_owned()
+
+    if low < remaining_length {
+      let mut boundary = 0
+      let lines = content.split("\n").to_array()
+      for index in 0..<(lines.length() - 1) {
+        boundary += lines[index].length() + 1
+      }
+
+      if boundary > 0 && boundary < end_offset {
+        let prefix = remaining.view(end_offset=boundary).to_owned()
+        let tail = remaining.view(start_offset=boundary)
+        let suffix = if tail.contains("\n") { "\n" } else { "" }
+        let next_line = tail.split("\n").head().unwrap().to_owned() + suffix
+        let next_context = Some({ file, hunk: last_hunk(prefix, hunk_context), })
+        if next_line.char_length() <= maximum &&
+          fits({ content: next_line, context: next_context, }) {
+          end_offset = boundary
+          content = prefix
+        }
+      }
+    }
+
+    chunks.push({ content, context, })
+    hunk_context = last_hunk(content, hunk_context)
+    remaining = remaining.view(start_offset=end_offset)
+    remaining_length -= content.char_length()
   }
 
   chunks
@@ -140,46 +142,66 @@ fn complete_chunk(content : String) -> DiffChunk {
 /// Split a complete Git diff without dropping or reordering any text. Complete
 /// file sections are kept together when they fit; oversized sections are split
 /// on line boundaries, and only an individual oversized line is split by
-/// Unicode characters.
+/// Unicode characters. The optional monotonic predicate also limits each
+/// chunk's prepared request, including its continuation context.
 pub fn split_diff(
   diff : String,
   maximum : Int,
+  fits? : (DiffChunk) -> Bool = _ => true,
 ) -> Array[DiffChunk] raise GenmitError {
   if maximum <= 0 {
     raise GenmitError("diff chunk size must be positive")
   }
 
   let chunks = []
-  let current = StringBuilder()
-  let mut current_length = 0
-
-  for block in diff_file_blocks(diff) {
-    let block_length = block.char_length()
-
-    if block_length > maximum {
-      if !current.is_empty() {
-        chunks.push(complete_chunk(current.to_string()))
-        current.reset()
-        current_length = 0
-      }
-
-      chunks.append(
-        contextualize_file_chunks(block, split_at_lines(block, maximum)),
-      )
-    } else {
-      if current_length + block_length > maximum {
-        chunks.push(complete_chunk(current.to_string()))
-        current.reset()
-        current_length = 0
-      }
-
-      current.write_string(block)
-      current_length += block_length
-    }
+  let blocks = diff_file_blocks(diff)
+  let lengths = [0]
+  for block in blocks {
+    lengths.push(lengths.last().unwrap() + block.char_length())
   }
 
-  if !current.is_empty() {
-    chunks.push(complete_chunk(current.to_string()))
+  let mut start = 0
+  while start < blocks.length() {
+    let block = blocks[start]
+    if lengths[start + 1] - lengths[start] > maximum ||
+      !fits(complete_chunk(block)) {
+      chunks.append(split_file(block, maximum, fits))
+      start += 1
+      continue
+    }
+
+    // Bound the file range by raw character counts before preparing requests.
+    let mut low = start + 1
+    let mut high = blocks.length()
+    while low < high {
+      let middle = low + (high - low + 1) / 2
+      if lengths[middle] - lengths[start] <= maximum {
+        low = middle
+      } else {
+        high = middle - 1
+      }
+    }
+
+    let candidate = complete_chunk(blocks[start:low].join(""))
+    if low == start + 1 || fits(candidate) {
+      chunks.push(candidate)
+      start = low
+      continue
+    }
+
+    // Search whole-file ranges instead of serializing after every added file.
+    high = low - 1
+    low = start + 1
+    while low < high {
+      let middle = low + (high - low + 1) / 2
+      if fits(complete_chunk(blocks[start:middle].join(""))) {
+        low = middle
+      } else {
+        high = middle - 1
+      }
+    }
+    chunks.push(complete_chunk(blocks[start:low].join("")))
+    start = low
   }
 
   chunks

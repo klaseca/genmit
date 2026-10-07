@@ -20,7 +20,7 @@ pub fn format_provider_error_details(String) -> String
 
 pub fn normalize_message(String) -> String raise GenmitError
 
-pub fn split_diff(String, Int) -> Array[DiffChunk] raise GenmitError
+pub fn split_diff(String, Int, fits? : (DiffChunk) -> Bool) -> Array[DiffChunk] raise GenmitError
 
 // Errors
 pub(all) suberror GenmitError {
@@ -125,6 +125,7 @@ pub fn RequestAuth::to_repr(Self) -> @debug.Repr
 pub struct SelectedProvider {
   // private fields
 } derive(@debug.Debug)
+pub fn SelectedProvider::max_input_chars(Self) -> Int
 pub fn SelectedProvider::model(Self) -> String?
 pub fn SelectedProvider::name(Self) -> String
 pub fn SelectedProvider::prepare_request(Self, Prompt) -> ProviderRequest

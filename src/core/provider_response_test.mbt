@@ -78,6 +78,31 @@ test "diff chunks preserve content and continuation context" {
 }
 
 ///|
+test "whole file groups respect the serialized request budget" {
+  let first = "diff --git a/one b/one\n+first change\n"
+  let second = "diff --git a/two b/two\n+second change\n"
+  let escaped = "diff --git a/escaped b/escaped\n+" + "\\\"".repeat(50) + "\n"
+  let last = "diff --git a/last b/last\n+last change\n"
+  let input = first + second + escaped + last
+  for maximum in [100, 160, 1000] {
+    let fits = fn(chunk : @core.DiffChunk) {
+      Json::string(chunk.content).stringify().char_length() <= maximum
+    }
+    let chunks = @core.split_diff(input, maximum, fits~)
+    assert_eq(chunks.map(chunk => chunk.content).join(""), input)
+    for chunk in chunks {
+      assert_true(fits(chunk))
+    }
+    for file in [first, second, last] {
+      assert_eq(
+        chunks.filter(chunk => chunk.content.contains(file)).length(),
+        1,
+      )
+    }
+  }
+}
+
+///|
 test "all text blocks are retained" {
   assert_eq(
     extract_test_http_response(

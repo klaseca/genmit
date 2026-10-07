@@ -16,6 +16,9 @@ extra = ""
 # The built-in providers are codex, openai, and anthropic. Override only the
 # fields you need; their kind, endpoint, model, and key-variable defaults remain.
 #
+# [providers.codex]
+# max_input_chars = 64000
+
 # [providers.codex.config]
 # model = "gpt-6-luna"
 # reasoning_effort = "low"
