@@ -4,6 +4,10 @@
 
 # genmit
 
+[![Mooncakes Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmooncakes.io%2Fapi-new%2Fv0%2Fmanifest%2Fklaseca%2Fgenmit&query=version&prefix=v&label=mooncakes&color=d08700)](https://mooncakes.io/docs/klaseca/genmit)
+[![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version/klaseca.genmit.svg)](https://marketplace.visualstudio.com/items?itemName=klaseca.genmit)
+
+
 genmit generates a commit message from the changes already staged in Git.
 It never stages files and never creates the commit: the CLI prints a message for
 you to review, while the VS Code extension places it in the Source Control input.
