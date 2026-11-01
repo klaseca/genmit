@@ -5,8 +5,8 @@ pub(all) struct ProcessRequest {
   args : Array[String]
   cwd : String
   input : String
-  timeout_ms : Int
-  maximum_output_bytes : Int
+  timeout_ms : Int32
+  maximum_output_bytes : Int32
 } derive(Debug)
 
 ///|
@@ -15,7 +15,7 @@ pub extend ProcessRequest with Debug::{to_repr}
 ///|
 /// Raw process completion supplied by the platform host.
 pub(all) struct ProcessOutput {
-  code : Int
+  code : Int32
   stdout : String
   stderr : String
 } derive(Debug)

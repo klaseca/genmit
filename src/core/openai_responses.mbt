@@ -13,15 +13,15 @@ impl ApiProvider for OpenAIResponsesApi with fn prepare_request(
   prompt,
 ) {
   let body = {
-    "model": config.model.to_json(),
-    "store": false.to_json(),
-    "instructions": prompt.instructions.to_json(),
-    "input": prompt.data.to_json(),
-    "max_output_tokens": config.max_tokens.to_json(),
+    "model": Json(config.model),
+    "store": Json(false),
+    "instructions": Json(prompt.instructions),
+    "input": Json(prompt.data),
+    "max_output_tokens": Json(config.max_tokens),
   }
 
   if config.reasoning_effort != "" {
-    body["reasoning"] = { "effort": config.reasoning_effort.to_json() }
+    body["reasoning"] = { "effort": Json(config.reasoning_effort) }
   }
 
   OpenAIResponsesRequest::{

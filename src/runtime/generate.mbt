@@ -4,7 +4,7 @@ pub async fn generate(
   cwd : String,
   config_path? : String,
   provider? : String,
-  on_event? : (@host.GenerationEvent) -> Unit = _ => (),
+  on_event~ : (@host.GenerationEvent) -> Unit = _ => (),
 ) -> @genmit.GenerationResult {
   let config = load_config(cwd, config_path)
 

@@ -63,7 +63,7 @@ fn last_hunk(content : String, previous : String?) -> String? {
 ///|
 fn split_file(
   block : String,
-  maximum : Int,
+  maximum : Int32,
   fits : (DiffChunk) -> Bool,
 ) -> Array[DiffChunk] raise GenmitError {
   let chunks = []
@@ -146,8 +146,8 @@ fn complete_chunk(content : String) -> DiffChunk {
 /// chunk's prepared request, including its continuation context.
 pub fn split_diff(
   diff : String,
-  maximum : Int,
-  fits? : (DiffChunk) -> Bool = _ => true,
+  maximum : Int32,
+  fits~ : (DiffChunk) -> Bool = _ => true,
 ) -> Array[DiffChunk] raise GenmitError {
   if maximum <= 0 {
     raise GenmitError("diff chunk size must be positive")

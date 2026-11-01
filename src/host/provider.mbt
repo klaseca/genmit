@@ -1,5 +1,5 @@
 ///|
-async fn read_bounded(reader : &@io.Reader, maximum : Int) -> &@io.Data {
+async fn read_bounded(reader : &@io.Reader, maximum : Int32) -> &@io.Data {
   let buffer = @buffer.Buffer()
 
   while reader.read_some(max_len=8192) is Some(chunk) {

@@ -3,7 +3,7 @@ async fn run_git(
   cwd : String,
   args : Array[String],
   runner : async (ProcessRequest) -> ProcessOutput,
-  trim? : Bool = true,
+  trim~ : Bool = true,
 ) -> String {
   let output = execute_process(
     {

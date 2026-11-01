@@ -12,14 +12,14 @@ pub async fn prepare_prompt(
 
 ///|
 priv struct ProviderCallBudget {
-  maximum : Int
-  mut used : Int
+  maximum : Int32
+  mut used : Int32
   on_event : (GenerationEvent) -> Unit
 }
 
 ///|
 fn ProviderCallBudget::ProviderCallBudget(
-  maximum : Int,
+  maximum : Int32,
   on_event : (GenerationEvent) -> Unit,
 ) -> ProviderCallBudget {
   { maximum, used: 0, on_event, }
@@ -28,7 +28,7 @@ fn ProviderCallBudget::ProviderCallBudget(
 ///|
 fn ProviderCallBudget::ensure_available(
   self : ProviderCallBudget,
-  required : Int,
+  required : Int32,
 ) -> Unit raise @genmit.GenmitError {
   if self.used + required > self.maximum {
     raise GenmitError(
@@ -81,7 +81,7 @@ async fn ProviderCallBudget::call(
 fn provider_request_chars(
   provider : @genmit.SelectedProvider,
   prompt : @genmit.Prompt,
-) -> Int {
+) -> Int32 {
   match provider.prepare_request(prompt) {
     Process(input~, ..) => input.char_length()
     Http(request) => request.transport().body.stringify().char_length()
@@ -109,7 +109,7 @@ fn validate_summary(raw : String) -> String raise @genmit.GenmitError {
 fn group_summaries(
   provider : @genmit.SelectedProvider,
   summaries : Array[String],
-  maximum : Int,
+  maximum : Int32,
 ) -> Array[Array[String]] raise @genmit.GenmitError {
   let groups : Array[Array[String]] = []
   let mut current : Array[String] = []
@@ -302,7 +302,7 @@ pub async fn generate(
   provider : @genmit.SelectedProvider,
   root : String,
   runner : async (ProcessRequest) -> ProcessOutput,
-  on_event? : (GenerationEvent) -> Unit = _ => (),
+  on_event~ : (GenerationEvent) -> Unit = _ => (),
 ) -> @genmit.GenerationResult {
   let started = @async.now()
   let mut failed = false

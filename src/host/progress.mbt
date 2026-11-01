@@ -1,8 +1,8 @@
 ///|
 /// The purpose of a provider request, independent of its transport.
 pub(all) enum GenerationPhase {
-  Summarize(part~ : Int, total~ : Int)
-  Reduce(round~ : Int, part~ : Int, total~ : Int)
+  Summarize(part~ : Int32, total~ : Int32)
+  Reduce(round~ : Int32, part~ : Int32, total~ : Int32)
   GenerateMessage
 } derive(Debug, Eq)
 
@@ -29,13 +29,17 @@ pub fn GenerationPhase::description(self : GenerationPhase) -> String {
 pub(all) enum GenerationEvent {
   Started(provider~ : String, model~ : String?)
   CollectingChanges
-  ChangesCollected(files~ : Int, diff_chars~ : Int)
-  RequestStarted(number~ : Int, phase~ : GenerationPhase, input_chars~ : Int)
-  RequestCompleted(number~ : Int, duration_ms~ : Int)
-  RequestFailed(number~ : Int, duration_ms~ : Int)
-  Completed(duration_ms~ : Int)
-  Failed(duration_ms~ : Int)
-  Cancelled(duration_ms~ : Int)
+  ChangesCollected(files~ : Int32, diff_chars~ : Int32)
+  RequestStarted(
+    number~ : Int32,
+    phase~ : GenerationPhase,
+    input_chars~ : Int32
+  )
+  RequestCompleted(number~ : Int32, duration_ms~ : Int32)
+  RequestFailed(number~ : Int32, duration_ms~ : Int32)
+  Completed(duration_ms~ : Int32)
+  Failed(duration_ms~ : Int32)
+  Cancelled(duration_ms~ : Int32)
 } derive(Debug, Eq)
 
 ///|
@@ -70,66 +74,66 @@ pub fn GenerationEvent::description(self : GenerationEvent) -> String {
 
 ///|
 impl ToJson for GenerationEvent with fn to_json(self) {
-  let fields : Map[String, Json] = { "message": self.description().to_json() }
+  let fields : Map[String, Json] = { "message": Json(self.description()) }
   let kind = match self {
     Started(provider~, model~) => {
-      fields["provider"] = provider.to_json()
+      fields["provider"] = Json(provider)
       fields["model"] = match model {
-        Some(value) => value.to_json()
+        Some(value) => Json(value)
         None => Json::null()
       }
       "started"
     }
     CollectingChanges => "collecting_changes"
     ChangesCollected(files~, diff_chars~) => {
-      fields["files"] = files.to_json()
-      fields["diff_chars"] = diff_chars.to_json()
+      fields["files"] = Json(files)
+      fields["diff_chars"] = Json(diff_chars)
       "changes_collected"
     }
     RequestStarted(number~, phase~, input_chars~) => {
-      fields["number"] = number.to_json()
-      fields["input_chars"] = input_chars.to_json()
-      fields["stage"] = phase.description().to_json()
+      fields["number"] = Json(number)
+      fields["input_chars"] = Json(input_chars)
+      fields["stage"] = Json(phase.description())
       match phase {
         Summarize(part~, total~) => {
-          fields["phase"] = "summarize".to_json()
-          fields["part"] = part.to_json()
-          fields["total"] = total.to_json()
+          fields["phase"] = Json("summarize")
+          fields["part"] = Json(part)
+          fields["total"] = Json(total)
         }
         Reduce(round~, part~, total~) => {
-          fields["phase"] = "reduce".to_json()
-          fields["round"] = round.to_json()
-          fields["part"] = part.to_json()
-          fields["total"] = total.to_json()
+          fields["phase"] = Json("reduce")
+          fields["round"] = Json(round)
+          fields["part"] = Json(part)
+          fields["total"] = Json(total)
         }
-        GenerateMessage => fields["phase"] = "generate_message".to_json()
+        GenerateMessage => fields["phase"] = Json("generate_message")
       }
       "request_started"
     }
     RequestCompleted(number~, duration_ms~) => {
-      fields["number"] = number.to_json()
-      fields["duration_ms"] = duration_ms.to_json()
+      fields["number"] = Json(number)
+      fields["duration_ms"] = Json(duration_ms)
       "request_completed"
     }
     RequestFailed(number~, duration_ms~) => {
-      fields["number"] = number.to_json()
-      fields["duration_ms"] = duration_ms.to_json()
+      fields["number"] = Json(number)
+      fields["duration_ms"] = Json(duration_ms)
       "request_failed"
     }
     Completed(duration_ms~) => {
-      fields["duration_ms"] = duration_ms.to_json()
+      fields["duration_ms"] = Json(duration_ms)
       "completed"
     }
     Failed(duration_ms~) => {
-      fields["duration_ms"] = duration_ms.to_json()
+      fields["duration_ms"] = Json(duration_ms)
       "failed"
     }
     Cancelled(duration_ms~) => {
-      fields["duration_ms"] = duration_ms.to_json()
+      fields["duration_ms"] = Json(duration_ms)
       "cancelled"
     }
   }
-  fields["type"] = kind.to_json()
+  fields["type"] = Json(kind)
   Json::object(fields)
 }
 
@@ -137,6 +141,6 @@ impl ToJson for GenerationEvent with fn to_json(self) {
 pub extend GenerationEvent with ToJson::{to_json}
 
 ///|
-fn elapsed_ms(started : Int64) -> Int {
+fn elapsed_ms(started : Int64) -> Int32 {
   (@async.now() - started).max(0).to_int()
 }

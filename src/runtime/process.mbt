@@ -1,6 +1,6 @@
 ///|
 /// Read incrementally so a child or server cannot allocate unbounded memory.
-async fn read_bounded(reader : &@io.Reader, maximum : Int) -> &@io.Data {
+async fn read_bounded(reader : &@io.Reader, maximum : Int32) -> &@io.Data {
   let buffer = @buffer.Buffer()
 
   while reader.read_some(max_len=8192) is Some(chunk) {
@@ -20,9 +20,9 @@ async fn collect_process(
   args : Array[String],
   cwd : String,
   input : String,
-  timeout_ms~ : Int,
-  maximum~ : Int,
-) -> (Int, String, String) {
+  timeout_ms~ : Int32,
+  maximum~ : Int32,
+) -> (Int32, String, String) {
   @async.with_timeout(timeout_ms, () => {
     @async.with_task_group() <| group => {
       let (stdin, writer) = @process.write_to_process()

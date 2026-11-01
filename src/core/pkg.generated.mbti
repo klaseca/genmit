@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn build_diff_summary_prompt(DiffChunk, Int, Int) -> Prompt
+pub fn build_diff_summary_prompt(DiffChunk, Int32, Int32) -> Prompt
 
 pub fn build_prompt(Config, GitContext) -> Prompt
 
@@ -20,7 +20,7 @@ pub fn format_provider_error_details(String) -> String
 
 pub fn normalize_message(String) -> String raise GenmitError
 
-pub fn split_diff(String, Int, fits? : (DiffChunk) -> Bool) -> Array[DiffChunk] raise GenmitError
+pub fn split_diff(String, Int32, fits? : (DiffChunk) -> Bool) -> Array[DiffChunk] raise GenmitError
 
 // Errors
 pub(all) suberror GenmitError {
@@ -43,10 +43,10 @@ pub struct Config {
   language : String
   style : CommitStyle
   include_body : Bool
-  max_subject_length : Int
+  max_subject_length : Int32
   extra_prompt : String
-  max_provider_calls : Int
-  generation_timeout_ms : Int
+  max_provider_calls : Int32
+  generation_timeout_ms : Int32
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Config::equal(Self, Self) -> Bool
@@ -74,7 +74,7 @@ pub fn DiffContext::not_equal(Self, Self) -> Bool
 pub fn DiffContext::to_repr(Self) -> @debug.Repr
 
 pub(all) struct GenerationResult {
-  protocol_version : Int
+  protocol_version : Int32
   message : String
   provider : String
   files : Array[String]
@@ -125,7 +125,7 @@ pub fn RequestAuth::to_repr(Self) -> @debug.Repr
 pub struct SelectedProvider {
   // private fields
 } derive(@debug.Debug)
-pub fn SelectedProvider::max_input_chars(Self) -> Int
+pub fn SelectedProvider::max_input_chars(Self) -> Int32
 pub fn SelectedProvider::model(Self) -> String?
 pub fn SelectedProvider::name(Self) -> String
 pub fn SelectedProvider::prepare_request(Self, Prompt) -> ProviderRequest

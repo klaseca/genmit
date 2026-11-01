@@ -19,13 +19,13 @@ pub async fn repository_root(String, async (ProcessRequest) -> ProcessOutput) ->
 pub(all) enum GenerationEvent {
   Started(provider~ : String, model~ : String?)
   CollectingChanges
-  ChangesCollected(files~ : Int, diff_chars~ : Int)
-  RequestStarted(number~ : Int, phase~ : GenerationPhase, input_chars~ : Int)
-  RequestCompleted(number~ : Int, duration_ms~ : Int)
-  RequestFailed(number~ : Int, duration_ms~ : Int)
-  Completed(duration_ms~ : Int)
-  Failed(duration_ms~ : Int)
-  Cancelled(duration_ms~ : Int)
+  ChangesCollected(files~ : Int32, diff_chars~ : Int32)
+  RequestStarted(number~ : Int32, phase~ : GenerationPhase, input_chars~ : Int32)
+  RequestCompleted(number~ : Int32, duration_ms~ : Int32)
+  RequestFailed(number~ : Int32, duration_ms~ : Int32)
+  Completed(duration_ms~ : Int32)
+  Failed(duration_ms~ : Int32)
+  Cancelled(duration_ms~ : Int32)
 } derive(Eq, @debug.Debug)
 pub fn GenerationEvent::description(Self) -> String
 pub fn GenerationEvent::equal(Self, Self) -> Bool
@@ -34,8 +34,8 @@ pub fn GenerationEvent::to_json(Self) -> Json
 pub fn GenerationEvent::to_repr(Self) -> @debug.Repr
 
 pub(all) enum GenerationPhase {
-  Summarize(part~ : Int, total~ : Int)
-  Reduce(round~ : Int, part~ : Int, total~ : Int)
+  Summarize(part~ : Int32, total~ : Int32)
+  Reduce(round~ : Int32, part~ : Int32, total~ : Int32)
   GenerateMessage
 } derive(Eq, @debug.Debug)
 pub fn GenerationPhase::description(Self) -> String
@@ -44,7 +44,7 @@ pub fn GenerationPhase::not_equal(Self, Self) -> Bool
 pub fn GenerationPhase::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ProcessOutput {
-  code : Int
+  code : Int32
   stdout : String
   stderr : String
 } derive(@debug.Debug)
@@ -55,8 +55,8 @@ pub(all) struct ProcessRequest {
   args : Array[String]
   cwd : String
   input : String
-  timeout_ms : Int
-  maximum_output_bytes : Int
+  timeout_ms : Int32
+  maximum_output_bytes : Int32
 } derive(@debug.Debug)
 pub fn ProcessRequest::to_repr(Self) -> @debug.Repr
 

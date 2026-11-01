@@ -25,10 +25,10 @@ fn default_harnesses() -> Map[String, HarnessDefinition] {
 let default_max_input_chars = 32000
 
 ///|
-let openai_default_max_input_chars : Int = (1050000 - 128000 - 32000) / 4
+let openai_default_max_input_chars : Int32 = (1050000 - 128000 - 32000) / 4
 
 ///|
-let anthropic_default_max_input_chars : Int = (1000000 - 128000 - 32000) / 4
+let anthropic_default_max_input_chars : Int32 = (1000000 - 128000 - 32000) / 4
 
 ///|
 let openai_model = "gpt-6-luna"
@@ -185,10 +185,10 @@ fn Config::Config(
   language~ : String,
   style~ : CommitStyle,
   include_body~ : Bool,
-  max_subject_length~ : Int,
+  max_subject_length~ : Int32,
   extra_prompt~ : String,
-  max_provider_calls~ : Int,
-  generation_timeout_ms~ : Int,
+  max_provider_calls~ : Int32,
+  generation_timeout_ms~ : Int32,
   harnesses~ : Map[String, HarnessDefinition],
   providers~ : Map[String, ProviderConfig],
 ) -> Config raise GenmitError {

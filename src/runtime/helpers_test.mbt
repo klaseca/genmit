@@ -6,7 +6,7 @@ async fn run_test_process(
   command : String,
   args : Array[String],
   cwd : String,
-) -> Int {
+) -> Int32 {
   let (code, _, _) = @process.collect_output(
     command,
     args,

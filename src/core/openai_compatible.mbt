@@ -13,16 +13,16 @@ impl ApiProvider for OpenAICompatibleApi with fn prepare_request(
   prompt,
 ) {
   let body = {
-    "model": config.model.to_json(),
+    "model": Json(config.model),
     "messages": [
-      { "role": "system", "content": prompt.instructions.to_json() },
-      { "role": "user", "content": prompt.data.to_json() },
+      { "role": "system", "content": Json(prompt.instructions) },
+      { "role": "user", "content": Json(prompt.data) },
     ],
-    "max_tokens": config.max_tokens.to_json(),
+    "max_tokens": Json(config.max_tokens),
   }
 
   if config.reasoning_effort != "" {
-    body["reasoning_effort"] = config.reasoning_effort.to_json()
+    body["reasoning_effort"] = Json(config.reasoning_effort)
   }
 
   OpenAICompatibleRequest::{

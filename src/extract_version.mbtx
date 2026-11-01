@@ -1,11 +1,12 @@
-///|
+----
 import {
   "moonbitlang/core/env",
   "moonbitlang/core/json",
-  "moonbitlang/moon_config@0.3.14",
+  "moonbitlang/moon_config@0.4.5",
   "moonbitlang/x@0.5.1/fs",
   "moonbitlang/x@0.5.1/sys",
 }
+----
 
 ///|
 suberror VersionError {
@@ -25,14 +26,14 @@ fn main {
 
     guard reports.is_empty() else { raise VersionError("invalid moon.mod") }
 
-    guard config.to_json() is { "version": String(version), .. } &&
+    guard Json(config) is { "version": String(version), .. } &&
       !version.is_empty() else {
       raise VersionError("moon.mod must declare a non-empty version")
     }
 
     @fs.write_string_to_file(
       output,
-      "// Generated from moon.mod. Do not edit.\n///|\nconst VERSION : String = \{version.to_json().stringify()}\n",
+      "// Generated from moon.mod. Do not edit.\n///|\nconst VERSION : String = \{Json(version).stringify()}\n",
     )
   } catch {
     error => {

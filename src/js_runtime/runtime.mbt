@@ -26,7 +26,7 @@ priv type GenerationControl
 ///|
 extern "js" fn GenerationControl::GenerationControl(
   signal : @js_async.AbortSignal,
-  timeout_ms : Int,
+  timeout_ms : Int32,
 ) -> GenerationControl =
   #| (signal, timeout_ms) => {
   #|   const timeout = AbortSignal.timeout(timeout_ms)
@@ -63,8 +63,8 @@ extern "js" fn ProcessRunner::run(
   args : FixedArray[String],
   cwd : String,
   input : String,
-  timeout_ms : Int,
-  maximum_output_bytes : Int,
+  timeout_ms : Int32,
+  maximum_output_bytes : Int32,
   control : GenerationControl,
 ) -> @js_async.Promise[JsProcessOutput] =
   #| async (runner, command, args, cwd, input, timeout_ms, maximum_output_bytes, control) => {
@@ -89,7 +89,7 @@ extern "js" fn ProcessRunner::run(
   #| }
 
 ///|
-extern "js" fn JsProcessOutput::code(self : Self) -> Int =
+extern "js" fn JsProcessOutput::code(self : Self) -> Int32 =
   #| (output) => output.code
 
 ///|
@@ -115,7 +115,7 @@ extern "js" fn api_cancelled() -> RuntimeResponse =
 
 ///|
 extern "js" fn api_success(
-  protocol_version : Int,
+  protocol_version : Int32,
   message : String,
   provider : String,
   files : FixedArray[String],

@@ -56,7 +56,7 @@ pub fn SelectedProvider::name(self : SelectedProvider) -> String {
 
 ///|
 /// Maximum prepared input size allowed for this provider, in characters.
-pub fn SelectedProvider::max_input_chars(self : SelectedProvider) -> Int {
+pub fn SelectedProvider::max_input_chars(self : SelectedProvider) -> Int32 {
   self.settings.max_input_chars
 }
 

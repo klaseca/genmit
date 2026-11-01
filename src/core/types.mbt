@@ -54,7 +54,7 @@ priv struct HarnessDefinition {
 ///|
 /// Genmit settings shared by command-line and HTTP providers.
 priv struct ProviderSettings {
-  max_input_chars : Int
+  max_input_chars : Int32
 } derive(Debug, Eq)
 
 ///|
@@ -71,7 +71,7 @@ priv struct ApiConfig {
   model : String
   reasoning_effort : String
   api_key_env : String
-  max_tokens : Int
+  max_tokens : Int32
 } derive(Debug, Eq)
 
 ///|
@@ -111,10 +111,10 @@ pub struct Config {
   language : String
   style : CommitStyle
   include_body : Bool
-  max_subject_length : Int
+  max_subject_length : Int32
   extra_prompt : String
-  max_provider_calls : Int
-  generation_timeout_ms : Int
+  max_provider_calls : Int32
+  generation_timeout_ms : Int32
   priv harnesses : Map[String, HarnessDefinition]
   priv providers : Map[String, ConfiguredProvider]
 } derive(Debug, Eq)
@@ -215,7 +215,7 @@ pub extend Prompt with Eq::{not_equal, equal}
 ///|
 /// Machine-readable result shared by CLI, VS Code, and future frontends.
 pub(all) struct GenerationResult {
-  protocol_version : Int
+  protocol_version : Int32
   message : String
   provider : String
   files : Array[String]

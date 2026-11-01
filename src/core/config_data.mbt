@@ -5,8 +5,8 @@ priv struct PromptData {
 
 ///|
 priv struct GenerationData {
-  max_provider_calls : Int?
-  timeout_ms : Int?
+  max_provider_calls : Int32?
+  timeout_ms : Int32?
 } derive(FromJson)
 
 ///|
@@ -26,7 +26,7 @@ priv struct HarnessDefinitionData {
 ///|
 priv struct ProviderData {
   kind : String?
-  max_input_chars : Int?
+  max_input_chars : Int32?
   config : Json?
 } derive(FromJson)
 
@@ -36,7 +36,7 @@ priv struct ApiConfigData {
   model : String?
   reasoning_effort : String?
   api_key_env : String?
-  max_tokens : Int?
+  max_tokens : Int32?
 } derive(FromJson)
 
 ///|
@@ -45,7 +45,7 @@ priv struct ConfigData {
   language : String?
   style : String?
   include_body : Bool?
-  max_subject_length : Int?
+  max_subject_length : Int32?
   prompt : PromptData?
   generation : GenerationData?
   harnesses : Map[String, HarnessDefinitionData]?

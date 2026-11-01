@@ -13,14 +13,14 @@ impl ApiProvider for AnthropicMessagesApi with fn prepare_request(
   prompt,
 ) {
   let body = {
-    "model": config.model.to_json(),
-    "system": prompt.instructions.to_json(),
-    "messages": [{ "role": "user", "content": prompt.data.to_json() }],
-    "max_tokens": config.max_tokens.to_json(),
+    "model": Json(config.model),
+    "system": Json(prompt.instructions),
+    "messages": [{ "role": "user", "content": Json(prompt.data) }],
+    "max_tokens": Json(config.max_tokens),
   }
 
   if config.reasoning_effort != "" {
-    body["output_config"] = { "effort": config.reasoning_effort.to_json() }
+    body["output_config"] = { "effort": Json(config.reasoning_effort) }
   }
 
   AnthropicMessagesRequest::{

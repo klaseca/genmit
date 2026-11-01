@@ -18,13 +18,13 @@ pub fn list_providers(input : String) -> RuntimeResponse {
 
     for (name, kind) in config.provider_kinds() {
       providers.push({
-        "name": name.to_json(),
-        "kind": kind.to_json(),
-        "selected": (name == selected).to_json(),
+        "name": Json(name),
+        "kind": Json(kind),
+        "selected": Json(name == selected),
       })
     }
 
-    providers_success(providers.to_json().stringify())
+    providers_success(Json(providers).stringify())
   } catch {
     @genmit.GenmitError(message) => api_error(message)
     error => api_error(error.to_string())

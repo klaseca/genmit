@@ -48,7 +48,7 @@ fn parse_http_response(input : String) -> Json raise GenmitError {
       )
     { "error": String(message), .. } if message.trim() != "" =>
       raise GenmitError(
-        "provider returned an error: \{provider_error_message(message.to_json())}",
+        "provider returned an error: \{provider_error_message(Json(message))}",
       )
     _ => json
   }
