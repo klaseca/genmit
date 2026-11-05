@@ -1,45 +1,52 @@
 ///|
+#derive(FromJson)
 priv struct PromptData {
   extra : String?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct GenerationData {
   max_provider_calls : Int32?
   timeout_ms : Int32?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct HarnessParameterData {
   required : Bool?
   args : Array[String]?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct HarnessDefinitionData {
   executable : String?
   args : Array[String]?
   parameters : Map[String, HarnessParameterData]?
   tail_args : Array[String]?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct ProviderData {
   kind : String?
   max_input_chars : Int32?
   config : Json?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct ApiConfigData {
   endpoint : String?
   model : String?
   reasoning_effort : String?
   api_key_env : String?
   max_tokens : Int32?
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct ConfigData {
   provider : String?
   language : String?
@@ -50,7 +57,7 @@ priv struct ConfigData {
   generation : GenerationData?
   harnesses : Map[String, HarnessDefinitionData]?
   providers : Map[String, ProviderData]?
-} derive(FromJson)
+}
 
 ///|
 fn toml_to_json(value : @toml.TomlValue) -> Json raise GenmitError {

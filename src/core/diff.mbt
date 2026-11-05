@@ -68,7 +68,7 @@ fn split_file(
 ) -> Array[DiffChunk] raise GenmitError {
   let chunks = []
   let file = file_context(block)
-  let mut remaining = block.view()
+  let mut remaining = block.exact_view()
   let mut remaining_length = block.char_length()
   let mut hunk_context : String? = None
 
@@ -84,7 +84,7 @@ fn split_file(
       let offset = remaining
         .offset_of_nth_char(middle)
         .unwrap_or(remaining.length())
-      let content = remaining.view(end_offset=offset).to_owned()
+      let content = remaining.exact_view(end=offset).to_owned()
       if fits({ content, context, }) {
         low = middle
       } else {
@@ -101,7 +101,7 @@ fn split_file(
     let mut end_offset = remaining
       .offset_of_nth_char(low)
       .unwrap_or(remaining.length())
-    let mut content = remaining.view(end_offset~).to_owned()
+    let mut content = remaining.exact_view(end=end_offset).to_owned()
 
     if low < remaining_length {
       let mut boundary = 0
@@ -111,8 +111,8 @@ fn split_file(
       }
 
       if boundary > 0 && boundary < end_offset {
-        let prefix = remaining.view(end_offset=boundary).to_owned()
-        let tail = remaining.view(start_offset=boundary)
+        let prefix = remaining.exact_view(end=boundary).to_owned()
+        let tail = remaining.exact_view(start=boundary)
         let suffix = if tail.contains("\n") { "\n" } else { "" }
         let next_line = tail.split("\n").head().unwrap().to_owned() + suffix
         let next_context = Some({ file, hunk: last_hunk(prefix, hunk_context), })
@@ -126,7 +126,7 @@ fn split_file(
 
     chunks.push({ content, context, })
     hunk_context = last_hunk(content, hunk_context)
-    remaining = remaining.view(start_offset=end_offset)
+    remaining = remaining.exact_view(start=end_offset)
     remaining_length -= content.char_length()
   }
 

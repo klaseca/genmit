@@ -18,7 +18,7 @@ pub fn format_provider_error_details(input : String) -> String {
   if details.char_length() > PROVIDER_ERROR_DETAILS_LIMIT {
     let end = details.offset_of_nth_char(PROVIDER_ERROR_DETAILS_LIMIT).unwrap()
 
-    details.view(end_offset=end).to_owned() + "..."
+    details.exact_view(end~).to_owned() + "..."
   } else {
     details
   }

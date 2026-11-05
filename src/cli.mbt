@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 enum Action {
   Generate
   Prompt
   Providers
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug)
 struct CliOptions {
   action : Action
   cwd : String
@@ -13,7 +15,7 @@ struct CliOptions {
   provider : String?
   json : Bool
   verbose : Bool
-} derive(Debug)
+}
 
 ///|
 fn json_flag() -> @argparse.FlagArg {

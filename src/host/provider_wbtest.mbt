@@ -1,12 +1,4 @@
 ///|
-#cfg(not(target="native"))
-let _native_test_imports : Unit = {
-  // moon.pkg cannot conditionally import dependencies of native-only tests.
-  ignore(@socket.unimplemented)
-  ignore(() => @json.parse(""))
-}
-
-///|
 async test "bounded reader accepts the limit and rejects overflow" {
   let exact = @io.MemoryReader(writer => writer.write("1234"))
   defer exact.close()

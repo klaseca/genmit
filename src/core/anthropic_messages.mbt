@@ -4,7 +4,8 @@ priv struct AnthropicMessagesRequest {
 }
 
 ///|
-priv struct AnthropicMessagesApi {} derive(Debug)
+#derive(Debug)
+priv struct AnthropicMessagesApi {}
 
 ///|
 impl ApiProvider for AnthropicMessagesApi with fn prepare_request(

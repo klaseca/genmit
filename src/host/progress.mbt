@@ -1,10 +1,11 @@
 ///|
 /// The purpose of a provider request, independent of its transport.
+#derive(Debug, Eq)
 pub(all) enum GenerationPhase {
   Summarize(part~ : Int32, total~ : Int32)
   Reduce(round~ : Int32, part~ : Int32, total~ : Int32)
   GenerateMessage
-} derive(Debug, Eq)
+}
 
 ///|
 pub extend GenerationPhase with Debug::{to_repr}
@@ -26,6 +27,7 @@ pub fn GenerationPhase::description(self : GenerationPhase) -> String {
 /// Progress metadata only: events never contain prompts, diffs, responses,
 /// credentials, command arguments, or provider stderr. Callbacks are synchronous
 /// and should return promptly. Each generation has its own callback.
+#derive(Debug, Eq)
 pub(all) enum GenerationEvent {
   Started(provider~ : String, model~ : String?)
   CollectingChanges
@@ -40,7 +42,7 @@ pub(all) enum GenerationEvent {
   Completed(duration_ms~ : Int32)
   Failed(duration_ms~ : Int32)
   Cancelled(duration_ms~ : Int32)
-} derive(Debug, Eq)
+}
 
 ///|
 pub extend GenerationEvent with Debug::{to_repr}

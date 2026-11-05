@@ -3,6 +3,7 @@ package "klaseca/genmit/core"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -23,21 +24,24 @@ pub fn normalize_message(String) -> String raise GenmitError
 pub fn split_diff(String, Int32, fits? : (DiffChunk) -> Bool) -> Array[DiffChunk] raise GenmitError
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror GenmitError {
   GenmitError(String)
-} derive(@debug.Debug)
+}
 pub fn GenmitError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum CommitStyle {
   Conventional
   Plain
   Gitmoji
-} derive(Eq, @debug.Debug)
+}
 pub fn CommitStyle::equal(Self, Self) -> Bool
 pub fn CommitStyle::not_equal(Self, Self) -> Bool
 pub fn CommitStyle::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Config {
   provider : String
   language : String
@@ -48,7 +52,7 @@ pub struct Config {
   max_provider_calls : Int32
   generation_timeout_ms : Int32
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Config::equal(Self, Self) -> Bool
 pub fn Config::from_toml(String) -> Self raise GenmitError
 pub fn Config::normalize_message(Self, String) -> String raise GenmitError
@@ -57,54 +61,60 @@ pub fn Config::provider_kinds(Self) -> Array[(String, String)]
 pub fn Config::select_provider(Self, provider? : String) -> SelectedProvider raise GenmitError
 pub fn Config::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct DiffChunk {
   content : String
   context : DiffContext?
-} derive(Eq, @debug.Debug)
+}
 pub fn DiffChunk::equal(Self, Self) -> Bool
 pub fn DiffChunk::not_equal(Self, Self) -> Bool
 pub fn DiffChunk::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct DiffContext {
   file : String
   hunk : String?
-} derive(Eq, @debug.Debug)
+}
 pub fn DiffContext::equal(Self, Self) -> Bool
 pub fn DiffContext::not_equal(Self, Self) -> Bool
 pub fn DiffContext::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug, @json.ToJson)
 pub(all) struct GenerationResult {
   protocol_version : Int32
   message : String
   provider : String
   files : Array[String]
-} derive(ToJson, @debug.Debug)
-pub fn GenerationResult::to_json(Self) -> Json
+}
+pub fn GenerationResult::to_json(Self) -> @json.Json
 pub fn GenerationResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct GitContext {
   root : String
   branch : String
   staged_files : Array[String]
   diff : String
   recent_commits : String
-} derive(Eq, @debug.Debug)
+}
 pub fn GitContext::equal(Self, Self) -> Bool
 pub fn GitContext::not_equal(Self, Self) -> Bool
 pub fn GitContext::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct HttpTransport {
   endpoint : String
   headers : Map[String, String]
   auth : RequestAuth
-  body : Json
-} derive(@debug.Debug)
+  body : @json.Json
+}
 pub fn HttpTransport::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Prompt {
   instructions : String
   data : String
-} derive(Eq, @debug.Debug)
+}
 pub fn Prompt::equal(Self, Self) -> Bool
 pub fn Prompt::not_equal(Self, Self) -> Bool
 pub fn Prompt::to_repr(Self) -> @debug.Repr
@@ -115,16 +125,18 @@ pub(all) enum ProviderRequest {
   Http(&HttpRequest)
 }
 
+#derive(@debug.Debug)
 pub struct RequestAuth {
   env : String
   header : String
   prefix : String
-} derive(@debug.Debug)
+}
 pub fn RequestAuth::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct SelectedProvider {
   // private fields
-} derive(@debug.Debug)
+}
 pub fn SelectedProvider::max_input_chars(Self) -> Int32
 pub fn SelectedProvider::model(Self) -> String?
 pub fn SelectedProvider::name(Self) -> String

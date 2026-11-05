@@ -10,9 +10,11 @@ import {
 // Errors
 
 // Types and methods
-type Action derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type Action
 
-type CliOptions derive(@debug.Debug)
+#derive(@debug.Debug)
+type CliOptions
 
 // Type aliases
 

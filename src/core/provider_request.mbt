@@ -1,22 +1,24 @@
 ///|
 /// Credential location; the host reads the secret and applies it to the header.
+#derive(Debug)
 pub struct RequestAuth {
   env : String
   header : String
   prefix : String
-} derive(Debug)
+}
 
 ///|
 pub extend RequestAuth with Debug::{to_repr}
 
 ///|
 /// HTTP data executed uniformly by the host.
+#derive(Debug)
 pub struct HttpTransport {
   endpoint : String
   headers : Map[String, String]
   auth : RequestAuth
   body : Json
-} derive(Debug)
+}
 
 ///|
 pub extend HttpTransport with Debug::{to_repr}

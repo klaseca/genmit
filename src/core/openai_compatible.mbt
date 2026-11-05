@@ -4,7 +4,8 @@ priv struct OpenAICompatibleRequest {
 }
 
 ///|
-priv struct OpenAICompatibleApi {} derive(Debug)
+#derive(Debug)
+priv struct OpenAICompatibleApi {}
 
 ///|
 impl ApiProvider for OpenAICompatibleApi with fn prepare_request(

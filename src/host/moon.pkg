@@ -9,6 +9,7 @@ import {
 
 supported_targets = "+js+native+wasm"
 
+#cfg(target="native")
 import {
   "moonbitlang/async/socket",
   "moonbitlang/core/json",

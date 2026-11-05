@@ -4,6 +4,7 @@ package "klaseca/genmit/host"
 import {
   "klaseca/genmit/core",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -16,6 +17,7 @@ pub async fn repository_root(String, async (ProcessRequest) -> ProcessOutput) ->
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerationEvent {
   Started(provider~ : String, model~ : String?)
   CollectingChanges
@@ -26,30 +28,33 @@ pub(all) enum GenerationEvent {
   Completed(duration_ms~ : Int32)
   Failed(duration_ms~ : Int32)
   Cancelled(duration_ms~ : Int32)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerationEvent::description(Self) -> String
 pub fn GenerationEvent::equal(Self, Self) -> Bool
 pub fn GenerationEvent::not_equal(Self, Self) -> Bool
-pub fn GenerationEvent::to_json(Self) -> Json
+pub fn GenerationEvent::to_json(Self) -> @json.Json
 pub fn GenerationEvent::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerationPhase {
   Summarize(part~ : Int32, total~ : Int32)
   Reduce(round~ : Int32, part~ : Int32, total~ : Int32)
   GenerateMessage
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerationPhase::description(Self) -> String
 pub fn GenerationPhase::equal(Self, Self) -> Bool
 pub fn GenerationPhase::not_equal(Self, Self) -> Bool
 pub fn GenerationPhase::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct ProcessOutput {
   code : Int32
   stdout : String
   stderr : String
-} derive(@debug.Debug)
+}
 pub fn ProcessOutput::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct ProcessRequest {
   command : String
   args : Array[String]
@@ -57,7 +62,7 @@ pub(all) struct ProcessRequest {
   input : String
   timeout_ms : Int32
   maximum_output_bytes : Int32
-} derive(@debug.Debug)
+}
 pub fn ProcessRequest::to_repr(Self) -> @debug.Repr
 
 // Type aliases
