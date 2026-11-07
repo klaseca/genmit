@@ -206,61 +206,68 @@ async fn generate_response(
 
     let mut terminal_event : @host.GenerationEvent? = None
 
-    let result = @host.generate(
-      config,
-      provider,
-      root,
-      process_request => run_process(runner, control, process_request),
-      on_event=event => {
-        // Classify failed/cancelled outcomes using transport identity below.
-        if event is Failed(..) || event is Cancelled(..) {
-          terminal_event = Some(event)
-          return
-        }
-        on_event.emit(event.to_json().stringify())
-      },
-    ) catch {
-      error => {
-        let cancelled = !control.process_failed() &&
-          !control.timed_out() &&
-          (control.process_cancelled() || @async.is_cancellation_error(error))
-        if terminal_event is Some(event) {
-          let event = match event {
-            Failed(duration_ms~) | Cancelled(duration_ms~) =>
-              if cancelled {
-                @host.GenerationEvent::Cancelled(duration_ms~)
-              } else {
-                @host.GenerationEvent::Failed(duration_ms~)
-              }
-            _ => event
-          }
-          on_event.emit(event.to_json().stringify())
-        }
-        if cancelled {
-          return api_cancelled()
-        }
-        if control.process_failed() && control.timed_out() {
-          let details = control.process_error()
-          return api_error(
-            "generation timed out after \{config.generation_timeout_ms} ms; process failed during shutdown: \{details}",
-          )
-        }
-        if control.timed_out() {
-          raise @genmit.GenmitError(
-            "generation timed out after \{config.generation_timeout_ms} ms",
-          )
-        } else {
-          raise error
-        }
-      }
+    let error = try
+      @async.handle_cancellation(() => {
+        @host.generate(
+          config,
+          provider,
+          root,
+          process_request => run_process(runner, control, process_request),
+          on_event=event => {
+            // Classify failed/cancelled outcomes using transport identity below.
+            if event is Failed(..) || event is Cancelled(..) {
+              terminal_event = Some(event)
+              return
+            }
+            on_event.emit(event.to_json().stringify())
+          },
+        )
+      })
+    catch {
+      error => Some(error)
+    } noraise {
+      Some(result) =>
+        return api_success(
+          result.protocol_version,
+          result.message,
+          result.provider,
+          FixedArray::from_array(result.files),
+        )
+      None => None
     }
-
-    api_success(
-      result.protocol_version,
-      result.message,
-      result.provider,
-      FixedArray::from_array(result.files),
-    )
+    let cancelled = !control.process_failed() &&
+      !control.timed_out() &&
+      (error is None || control.process_cancelled())
+    if terminal_event is Some(event) {
+      let event = match event {
+        Failed(duration_ms~) | Cancelled(duration_ms~) =>
+          if cancelled {
+            @host.GenerationEvent::Cancelled(duration_ms~)
+          } else {
+            @host.GenerationEvent::Failed(duration_ms~)
+          }
+        _ => event
+      }
+      on_event.emit(event.to_json().stringify())
+    }
+    if cancelled {
+      return api_cancelled()
+    }
+    if control.process_failed() && control.timed_out() {
+      let details = control.process_error()
+      return api_error(
+        "generation timed out after \{config.generation_timeout_ms} ms; process failed during shutdown: \{details}",
+      )
+    }
+    if control.timed_out() {
+      raise @genmit.GenmitError(
+        "generation timed out after \{config.generation_timeout_ms} ms",
+      )
+    }
+    match error {
+      Some(error) => raise error
+      None => api_cancelled()
+    }
   } catch {
     @genmit.GenmitError(message) => api_error(message)
     error => raise error

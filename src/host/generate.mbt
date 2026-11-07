@@ -305,33 +305,30 @@ pub async fn generate(
   on_event~ : (GenerationEvent) -> Unit = _ => (),
 ) -> @genmit.GenerationResult {
   let started = @async.now()
-  let mut failed = false
-  errdefer on_event(
-    if failed {
-      Failed(duration_ms=elapsed_ms(started))
-    } else {
-      Cancelled(duration_ms=elapsed_ms(started))
-    },
-  )
-  let result = @async.with_timeout(
-    config.generation_timeout_ms,
-    () => {
-      on_event(Started(provider=provider.name(), model=provider.model()))
-      // A subscriber may cancel synchronously. Observe cancellation before
-      // invoking Git, with the timeout task group already established.
-      @async.pause()
-      generate_within_budget(config, provider, root, runner, on_event)
-    },
-    error=@genmit.GenmitError(
-      "generation timed out after \{config.generation_timeout_ms} ms",
-    ),
-  ) catch {
-    error if !@async.is_cancellation_error(error) => {
-      failed = true
-      raise error
-    }
-    error => raise error
+  let result = {
+    errdefer on_event(Failed(duration_ms=elapsed_ms(started)))
+    @async.handle_cancellation(() => {
+      @async.with_timeout(
+        config.generation_timeout_ms,
+        () => {
+          on_event(Started(provider=provider.name(), model=provider.model()))
+          // A subscriber may cancel synchronously. Observe cancellation before
+          // invoking Git, with the timeout task group already established.
+          @async.pause()
+          generate_within_budget(config, provider, root, runner, on_event)
+        },
+        error=@genmit.GenmitError(
+          "generation timed out after \{config.generation_timeout_ms} ms",
+        ),
+      )
+    })
   }
+  if result is None {
+    on_event(Cancelled(duration_ms=elapsed_ms(started)))
+    // Cancellation remains active; resume propagation before unwrapping.
+    @async.pause()
+  }
+  let result = result.unwrap()
   on_event(Completed(duration_ms=elapsed_ms(started)))
   result
 }

@@ -3,8 +3,8 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/moon_config@0.4.5",
-  "moonbitlang/x@0.5.1/fs",
-  "moonbitlang/x@0.5.1/sys",
+  "moonbitlang/x@0.5.7/fs",
+  "moonbitlang/x@0.5.7/sys",
 }
 ----
 

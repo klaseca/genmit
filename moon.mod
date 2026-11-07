@@ -19,7 +19,7 @@ supported_targets = "+js+native+wasm"
 source = "src"
 
 import {
-  "moonbit-community/toml@0.5.0",
-  "moonbitlang/async@0.21.0",
-  "moonbitlang/x@0.5.1",
+  "moonbit-community/toml@0.5.1",
+  "moonbitlang/async@0.22.7",
+  "moonbitlang/x@0.5.7",
 }

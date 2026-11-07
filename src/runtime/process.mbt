@@ -80,7 +80,6 @@ async fn collect_process(
       (code, output, errors)
     }
   }) catch {
-    error if @async.is_cancellation_error(error) => raise error
     error =>
       raise @genmit.GenmitError(
         "failed to run command '\{command}': \{repr(error)}",

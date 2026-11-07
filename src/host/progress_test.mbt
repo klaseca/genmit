@@ -161,7 +161,8 @@ async test "external cancellation emits a cancelled terminal event" {
     }
     task.cancel()
     try task.wait() catch {
-      error => assert_true(@async.is_cancellation_error(error))
+      @async.WaitedTaskAlreadyCancelled => ()
+      error => raise error
     } noraise {
       _ => fail("expected cancellation")
     }
