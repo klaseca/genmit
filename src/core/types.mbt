@@ -123,6 +123,7 @@ pub struct Config {
   style : CommitStyle
   include_body : Bool
   max_subject_length : Int32
+  body_wrap_width : Int32
   extra_prompt : String
   max_provider_calls : Int32
   generation_timeout_ms : Int32

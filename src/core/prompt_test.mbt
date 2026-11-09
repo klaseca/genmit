@@ -56,23 +56,25 @@ test "message normalization rejects control characters" {
 }
 
 ///|
-test "resolved config enforces subject and body limits" {
-  let defaults = @core.default_config()
+test "resolved config validates the subject and omits a disabled body" {
+  let config = test_config(
+    (
+      #|max_subject_length = 40
+      #|include_body = false
+    ),
+  )
 
-  try defaults.normalize_message("x".repeat(73)) catch {
-    GenmitError(message) => assert_true(message.contains("72 character limit"))
+  try config.normalize_message("x".repeat(41)) catch {
+    GenmitError(message) => assert_true(message.contains("40 character limit"))
   } noraise {
     _ => fail("expected subject limit validation")
   }
 
-  let subject_only = test_config("include_body = false")
-
-  try subject_only.normalize_message("feat: subject\n\nUnexpected body") catch {
-    GenmitError(message) =>
-      assert_true(message.contains("include_body is false"))
-  } noraise {
-    _ => fail("expected body validation")
-  }
+  let message =
+    #|feat: subject
+    #|
+    #|The provider added a body despite the requested subject-only output.
+  assert_eq(config.normalize_message(message), "feat: subject")
 }
 
 ///|

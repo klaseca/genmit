@@ -127,6 +127,7 @@ language = "en"
 style = "conventional"
 include_body = true
 max_subject_length = 72
+body_wrap_width = 72
 
 [generation]
 max_provider_calls = 32
@@ -140,8 +141,10 @@ The main generation settings are:
 
 - `language`: the language requested for the message;
 - `style`: `conventional`, `plain`, or `gitmoji`;
-- `include_body`: whether a body is allowed after the subject;
+- `include_body`: whether to include a body; `false` keeps only the subject;
 - `max_subject_length`: subject limit from 20 to 200 characters;
+- `body_wrap_width`: wrap body text at this many characters (default 72);
+  `0` disables wrapping. Long words and URLs remain intact;
 - `prompt.extra`: additional instructions;
 - `providers.<name>.max_input_chars`: maximum prepared input size per
   request in characters, including instructions and context;

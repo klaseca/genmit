@@ -80,6 +80,7 @@ pub fn default_config() -> Config {
     style=Conventional,
     include_body=true,
     max_subject_length=72,
+    body_wrap_width=72,
     extra_prompt="",
     max_provider_calls=32,
     generation_timeout_ms=600000,
@@ -186,6 +187,7 @@ fn Config::Config(
   style~ : CommitStyle,
   include_body~ : Bool,
   max_subject_length~ : Int32,
+  body_wrap_width~ : Int32,
   extra_prompt~ : String,
   max_provider_calls~ : Int32,
   generation_timeout_ms~ : Int32,
@@ -194,6 +196,10 @@ fn Config::Config(
 ) -> Config raise GenmitError {
   if max_subject_length < 20 || max_subject_length > 200 {
     raise GenmitError("max_subject_length must be between 20 and 200")
+  }
+
+  if body_wrap_width < 0 {
+    raise GenmitError("body_wrap_width must be zero or positive")
   }
 
   if language.trim() == "" {
@@ -256,6 +262,7 @@ fn Config::Config(
     style,
     include_body,
     max_subject_length,
+    body_wrap_width,
     extra_prompt,
     max_provider_calls,
     generation_timeout_ms,

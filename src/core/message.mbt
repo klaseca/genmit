@@ -29,6 +29,34 @@ pub fn normalize_message(output : String) -> String raise GenmitError {
 }
 
 ///|
+fn wrap_body(body : StringView, width : Int32) -> String {
+  body
+  .split("\n")
+  .map(line => {
+    if line.char_length() <= width {
+      return line.to_owned()
+    }
+    let wrapped = StringBuilder()
+    let mut current_length = 0
+    for word in line.split(" ").filter(word => !word.is_empty()) {
+      let word_length = word.char_length()
+      if current_length > 0 && current_length + 1 + word_length > width {
+        wrapped.write_char('\n')
+        current_length = 0
+      }
+      if current_length > 0 {
+        wrapped.write_char(' ')
+        current_length += 1
+      }
+      wrapped.write_stringview(word)
+      current_length += word_length
+    }
+    wrapped.to_string()
+  })
+  .join("\n")
+}
+
+///|
 /// Normalize and enforce the output constraints of a resolved configuration.
 pub fn Config::normalize_message(
   self : Config,
@@ -36,9 +64,7 @@ pub fn Config::normalize_message(
 ) -> String raise GenmitError {
   let message = normalize_message(output)
 
-  let lines = message.split("\n").to_array()
-
-  let subject = lines[0]
+  let (subject, body) = message.split_once("\n").unwrap_or((message[:], ""))
 
   if subject.char_length() > self.max_subject_length {
     raise GenmitError(
@@ -46,11 +72,13 @@ pub fn Config::normalize_message(
     )
   }
 
-  if !self.include_body && lines.length() > 1 {
-    raise GenmitError(
-      "the selected provider returned a commit body while include_body is false",
-    )
+  if !self.include_body {
+    return subject.to_owned()
   }
 
-  message
+  if self.body_wrap_width == 0 || body.is_empty() {
+    return message
+  }
+
+  "\{subject}\n\{wrap_body(body, self.body_wrap_width)}"
 }

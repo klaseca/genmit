@@ -76,6 +76,7 @@ test "TOML adds reusable harnesses and concrete providers" {
     #|style = "plain"
     #|include_body = false
     #|max_subject_length = 60
+    #|body_wrap_width = 88
     #|
     #|[prompt]
     #|extra = "Use the project vocabulary."
@@ -109,6 +110,7 @@ test "TOML adds reusable harnesses and concrete providers" {
   assert_eq(config.style, Plain)
   assert_false(config.include_body)
   assert_eq(config.max_subject_length, 60)
+  assert_eq(config.body_wrap_width, 88)
   assert_eq(provider.max_input_chars(), 64000)
   assert_eq(provider.model(), None)
 
@@ -368,6 +370,15 @@ test "config validates generation limits" {
     } noraise {
       _ => fail("expected config validation to fail")
     }
+  }
+}
+
+///|
+test "config rejects negative body wrap widths" {
+  try test_config("body_wrap_width = -1") catch {
+    GenmitError(message) => assert_true(message.contains("body_wrap_width"))
+  } noraise {
+    _ => fail("expected wrap width validation to fail")
   }
 }
 

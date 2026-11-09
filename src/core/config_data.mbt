@@ -53,6 +53,7 @@ priv struct ConfigData {
   style : String?
   include_body : Bool?
   max_subject_length : Int32?
+  body_wrap_width : Int32?
   prompt : PromptData?
   generation : GenerationData?
   harnesses : Map[String, HarnessDefinitionData]?
@@ -243,6 +244,8 @@ fn ConfigData::to_config(self : ConfigData) -> Config raise GenmitError {
     defaults.max_subject_length,
   )
 
+  let body_wrap_width = self.body_wrap_width.unwrap_or(defaults.body_wrap_width)
+
   let extra_prompt = match self.prompt {
     Some(prompt) => prompt.extra.unwrap_or(defaults.extra_prompt)
     None => defaults.extra_prompt
@@ -279,6 +282,7 @@ fn ConfigData::to_config(self : ConfigData) -> Config raise GenmitError {
     style~,
     include_body~,
     max_subject_length~,
+    body_wrap_width~,
     extra_prompt~,
     max_provider_calls~,
     generation_timeout_ms~,

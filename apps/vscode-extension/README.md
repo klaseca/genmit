@@ -90,11 +90,14 @@ language = "en"
 style = "conventional"
 include_body = true
 max_subject_length = 72
+body_wrap_width = 72
 
 [providers.codex.config]
 model = "gpt-6-luna"
 reasoning_effort = "low"
 ```
+
+`body_wrap_width` defaults to 72 characters. Set it to `0` to disable body wrapping.
 
 Choose **genmit: Select Provider** from the Source Control `…` menu or Command
 Palette to switch providers. The extension remembers your choice for the
