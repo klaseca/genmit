@@ -1,6 +1,6 @@
 {
   "name": "genmit",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "displayName": "Genmit",
   "description": "Generate AI-assisted commit messages from staged Git changes",
   "publisher": "klaseca",
