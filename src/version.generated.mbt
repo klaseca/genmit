@@ -1,3 +1,3 @@
 // Generated from moon.mod. Do not edit.
 ///|
-const VERSION : String = "0.2.1"
+const VERSION : String = "0.3.0"

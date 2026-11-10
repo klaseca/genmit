@@ -1,6 +1,6 @@
 name = "klaseca/genmit"
 
-version = "0.2.1"
+version = "0.3.0"
 
 repository = "https://github.com/klaseca/genmit"
 
