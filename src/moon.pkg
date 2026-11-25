@@ -1,7 +1,6 @@
 import {
   "klaseca/genmit/core",
   "klaseca/genmit/runtime",
-  "moonbitlang/async",
   "moonbitlang/async/stdio",
   "moonbitlang/core/argparse",
   "moonbitlang/core/env",

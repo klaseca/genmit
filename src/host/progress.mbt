@@ -35,7 +35,7 @@ pub(all) enum GenerationEvent {
   RequestStarted(
     number~ : Int32,
     phase~ : GenerationPhase,
-    input_chars~ : Int32
+    input_chars~ : Int32,
   )
   RequestCompleted(number~ : Int32, duration_ms~ : Int32)
   RequestFailed(number~ : Int32, duration_ms~ : Int32)

@@ -62,7 +62,7 @@ impl HttpRequest for OpenAICompatibleRequest with fn extract_response(
             ..
           },
           ..,
-        ]
+        ],
       ),
       ..
     } else {
